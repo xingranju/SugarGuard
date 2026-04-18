@@ -1,0 +1,49 @@
+# LangChain相关
+langchain>=0.1.0
+langchain-community>=0.0.20
+langchain-openai>=0.0.5
+
+# DeepSeek / OpenAI客户端
+openai>=1.10.0
+
+# Hugging Face模型
+transformers>=4.36.0
+torch>=2.2.0
+sentence-transformers>=2.2.2
+
+# 图像处理
+pillow>=10.1.0
+opencv-python>=4.8.1.78
+
+# 数据库
+mysql-connector-python>=8.2.0
+sqlalchemy>=2.0.23
+pymysql>=1.1.0
+
+# 网络爬虫
+scrapy>=2.11.0
+beautifulsoup4>=4.12.2
+requests>=2.31.0
+lxml>=4.9.3
+
+# 向量数据库
+faiss-cpu>=1.7.4
+
+# 数据处理
+pandas>=2.1.4
+numpy>=1.26.2
+
+# Web框架（API服务）
+fastapi>=0.108.0
+uvicorn>=0.25.0
+python-multipart>=0.0.6
+
+# 测试框架
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+
+# 其他工具
+python-dotenv>=1.0.0
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
+

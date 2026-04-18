@@ -1,0 +1,478 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ========== 后端Java服务CI ========== 
+  backend-ci:
+    name: Backend CI - Build & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: health_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      
+      - name: Build with Maven
+        run: |
+          cd backend
+          mvn clean compile -DskipTests
+      
+      - name: Run unit tests
+        run: |
+          cd backend
+          mvn test
+      
+      - name: Run integration tests
+        run: |
+          cd backend
+          mvn verify -DskipUnitTests
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/health_test
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+      
+      - name: Generate test coverage report
+        run: |
+          cd backend
+          mvn jacoco:report
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend/target/site/jacoco/jacoco.xml
+          flags: backend
+          name: backend-coverage
+      
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: backend
+          args: >
+            -Dsonar.projectKey=health-backend
+            -Dsonar.sources=src/main
+            -Dsonar.tests=src/test
+            -Dsonar.java.binaries=target/classes
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+      
+      - name: Build Docker image
+        if: github.event_name == 'push'
+        run: |
+          cd backend
+          docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:${{ env.IMAGE_TAG }} .
+          docker tag ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:${{ env.IMAGE_TAG }} \
+                     ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:latest
+      
+      - name: Push Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ env.DOCKER_USERNAME }} --password-stdin
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:${{ env.IMAGE_TAG }}
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:latest
+
+  # ========== AI服务CI ==========
+  ai-service-ci:
+    name: AI Service CI - Build & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd ai-service
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Code style check with flake8
+        run: |
+          cd ai-service
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      
+      - name: Type check with mypy
+        run: |
+          cd ai-service
+          mypy app --ignore-missing-imports
+      
+      - name: Run unit tests with pytest
+        run: |
+          cd ai-service
+          pytest tests/ --cov=app --cov-report=xml --cov-report=html -v
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./ai-service/coverage.xml
+          flags: ai-service
+          name: ai-service-coverage
+      
+      - name: Security scan with Bandit
+        run: |
+          cd ai-service
+          bandit -r app -f json -o bandit-report.json || true
+      
+      - name: Build Docker image
+        if: github.event_name == 'push'
+        run: |
+          cd ai-service
+          docker build -t ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:${{ env.IMAGE_TAG }} .
+          docker tag ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:${{ env.IMAGE_TAG }} \
+                     ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:latest
+      
+      - name: Push Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ env.DOCKER_USERNAME }} --password-stdin
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:${{ env.IMAGE_TAG }}
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:latest
+
+  # ========== Android前端CI ==========
+  android-ci:
+    name: Android CI - Build & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+      
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+      
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
+      
+      - name: Generate test coverage report
+        run: ./gradlew jacocoTestReport
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          flags: android
+          name: android-coverage
+      
+      - name: Lint check
+        run: ./gradlew lintDebug
+      
+      - name: Upload APK
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-debug-${{ github.sha }}.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+  # ========== 集成测试 ==========
+  integration-test:
+    name: Integration Testing
+    runs-on: ubuntu-latest
+    needs: [backend-ci, ai-service-ci]
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start services with Docker Compose
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 30
+      
+      - name: Wait for services to be healthy
+        run: |
+          timeout 120 bash -c 'until docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 5; done'
+      
+      - name: Run API integration tests
+        run: |
+          docker-compose -f docker-compose.test.yml exec -T backend \
+            mvn verify -Dtest=*IntegrationTest
+      
+      - name: Run end-to-end tests
+        run: |
+          cd e2e-tests
+          npm install
+          npm run test:api
+      
+      - name: Collect logs
+        if: failure()
+        run: |
+          docker-compose -f docker-compose.test.yml logs > integration-test-logs.txt
+      
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-test-logs
+          path: integration-test-logs.txt
+      
+      - name: Stop services
+        if: always()
+        run: docker-compose -f docker-compose.test.yml down -v
+
+  # ========== 性能测试 ==========
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JMeter
+        run: |
+          wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.2.tgz
+          tar -xzf apache-jmeter-5.6.2.tgz
+      
+      - name: Start services
+        run: docker-compose up -d
+      
+      - name: Wait for services
+        run: sleep 60
+      
+      - name: Run JMeter tests
+        run: |
+          apache-jmeter-5.6.2/bin/jmeter -n \
+            -t performance-tests/load-test.jmx \
+            -l performance-results.jtl \
+            -e -o performance-report
+      
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: performance-report/
+      
+      - name: Stop services
+        if: always()
+        run: docker-compose down
+
+  # ========== 安全扫描 ==========
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [backend-ci, ai-service-ci]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run OWASP Dependency Check (Java)
+        run: |
+          cd backend
+          mvn org.owasp:dependency-check-maven:check
+      
+      - name: Run Safety check (Python)
+        run: |
+          cd ai-service
+          pip install safety
+          safety check -r requirements.txt --json > safety-report.json || true
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ========== 部署到测试环境 ==========
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [integration-test, security-scan]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.health-app.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+      
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/staging/
+          kubectl set image deployment/backend \
+            backend=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/ai-service \
+            ai-service=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:${{ env.IMAGE_TAG }}
+          kubectl rollout status deployment/backend
+          kubectl rollout status deployment/ai-service
+      
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://staging.health-app.com/health || exit 1
+
+  # ========== 部署到生产环境 ==========
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [integration-test, performance-test, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://health-app.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+      
+      - name: Create backup
+        run: |
+          kubectl exec deployment/mysql -- mysqldump -u root -p${{ secrets.MYSQL_ROOT_PASSWORD }} health_management > backup.sql
+      
+      - name: Deploy with canary strategy
+        run: |
+          # 部署Canary版本 (10%流量)
+          kubectl apply -f k8s/production/canary/
+          kubectl set image deployment/backend-canary \
+            backend=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:${{ env.IMAGE_TAG }}
+          kubectl rollout status deployment/backend-canary
+          
+          # 等待并监控
+          sleep 300
+          
+          # 检查错误率
+          ERROR_RATE=$(curl -s "http://prometheus:9090/api/v1/query?query=rate(http_requests_total{status=~'5..'}[5m])" | jq '.data.result[0].value[1]')
+          if (( $(echo "$ERROR_RATE > 0.01" | bc -l) )); then
+            echo "Error rate too high, rolling back"
+            kubectl delete -f k8s/production/canary/
+            exit 1
+          fi
+          
+          # 全量部署
+          kubectl apply -f k8s/production/
+          kubectl set image deployment/backend \
+            backend=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-backend:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/ai-service \
+            ai-service=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_USERNAME }}/health-ai:${{ env.IMAGE_TAG }}
+          kubectl rollout status deployment/backend
+          kubectl rollout status deployment/ai-service
+          
+          # 清理Canary
+          kubectl delete -f k8s/production/canary/
+      
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://health-app.com/health || exit 1
+          curl -f https://health-app.com/api/health || exit 1
+      
+      - name: Notify deployment success
+        uses: 8398a7/action-slack@v3
+        if: success()
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "✅ Production deployment successful!",
+              attachments: [{
+                color: 'good',
+                text: `Commit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nBranch: ${{ github.ref }}`
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      
+      - name: Notify deployment failure
+        uses: 8398a7/action-slack@v3
+        if: failure()
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "❌ Production deployment failed!",
+              attachments: [{
+                color: 'danger',
+                text: `Commit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nPlease check the logs.`
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+

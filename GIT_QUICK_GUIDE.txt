@@ -1,0 +1,168 @@
+========================================================
+  SugarGuard AI - Git 操作快速指南
+  仓库地址: https://github.com/xingranju/SugarGuard
+========================================================
+
+【零、首次克隆项目】
+
+  git clone https://github.com/xingranju/SugarGuard.git
+  cd SugarGuard
+
+  # 切换到开发分支
+  git checkout dev
+
+
+【一、日常开发流程】
+
+  1. 拉取最新 dev 代码
+     git checkout dev
+     git pull origin dev
+
+  2. 创建功能分支
+     git checkout -b feature/android-xxx       # 新功能
+     git checkout -b bugfix/42-xxx             # 修 Bug
+
+  3. 开发并提交（可多次）
+     git add .
+     git commit -m "feat(android): 添加xxx功能"
+
+  4. 推送到远程
+     git push -u origin feature/android-xxx
+
+  5. 在 GitHub 上创建 Pull Request
+     目标分支: dev
+     标题格式: [TAPD-xxx] 简要描述
+
+  6. Code Review 通过后 → Squash Merge → 删除功能分支
+
+
+【二、Commit Message 格式】
+
+  格式: <type>(<scope>): <subject>
+
+  Type 类型:
+    feat     新功能           feat(android): 添加饮品记录页面
+    fix      Bug修复          fix(backend): 修复JWT过期问题
+    docs     文档变更          docs: 更新API文档
+    style    代码格式          style(android): 统一缩进
+    refactor 重构             refactor(ai): 拆分RAG模块
+    test     测试             test(backend): 补充注册测试
+    chore    构建/依赖         chore: 升级Spring Boot
+    perf     性能优化          perf(ai): 优化向量检索
+    ci       CI/CD            ci: 添加APK构建流水线
+
+  Scope 范围:
+    android  → app/               前端
+    backend  → backend-api/       后端
+    ai       → ai-service/        AI服务
+    scripts  → scripts/           脚本
+    ci       → .github/           CI/CD
+    docker   → docker-compose     容器
+
+
+【三、分支命名规范】
+
+  main                           永久 | 稳定发布线
+  dev                            永久 | 日常集成线
+  feature/<模块>-<描述>           临时 | 新功能开发
+  bugfix/<issue号>-<描述>         临时 | 常规Bug修复
+  hotfix/<版本号>-<描述>          临时 | 紧急线上修复
+
+  命名示例:
+    feature/android-drink-record
+    feature/backend-ai-chat
+    bugfix/42-login-crash
+    hotfix/1.2.1-token-expired
+
+
+【四、合并规则速查】
+
+  feature → dev       Squash Merge      (压缩提交，保持dev简洁)
+  bugfix  → dev       Squash Merge
+  dev     → main      Merge Commit      (--no-ff, 保留发版节点)
+  hotfix  → main+dev  Merge Commit      (同时合入两个分支)
+
+
+【五、常用命令】
+
+  # 查看状态
+  git status
+  git branch -a
+  git log --oneline --graph -20
+
+  # 分支操作
+  git checkout dev                     切换分支
+  git checkout -b feature/xxx          创建并切换
+  git branch -d feature/xxx            删除本地已合并分支
+  git push origin --delete feature/xxx 删除远程分支
+
+  # 同步操作
+  git pull origin dev                  拉取远程
+  git push -u origin feature/xxx       推送新分支
+  git fetch --all --prune              同步远程分支列表
+
+  # 暂存/恢复
+  git stash                            暂存当前修改
+  git stash pop                        恢复暂存
+
+  # 解决冲突
+  git pull origin dev                  拉取后有冲突
+  # → 手动编辑冲突文件（搜索 <<<<<<< 标记）
+  git add .
+  git commit -m "merge: 解决与dev的冲突"
+
+  # 打版本标签
+  git tag v1.0.0
+  git push origin v1.0.0
+
+
+【六、Sprint 发版流程】
+
+  1. 确保 dev 所有功能分支已合入，CI 全绿
+  2. 在 GitHub 创建 PR: dev → main
+  3. 至少 1 人 Review 通过
+  4. 使用 Merge Commit (--no-ff) 合入 main
+  5. 打 Tag:
+       git checkout main
+       git pull origin main
+       git tag v1.x.0
+       git push origin v1.x.0
+  6. 在 GitHub Releases 页面撰写 Release Note
+
+
+【七、紧急修复(Hotfix)流程】
+
+  1. 从 main 创建 hotfix 分支
+       git checkout main
+       git pull origin main
+       git checkout -b hotfix/1.2.1-xxx
+
+  2. 修复并提交
+       git commit -m "hotfix(backend): 紧急修复xxx"
+
+  3. 推送并创建两个 PR
+       git push -u origin hotfix/1.2.1-xxx
+       PR1: hotfix → main
+       PR2: hotfix → dev
+
+  4. 合入 main 后打 Tag
+       git tag v1.2.1
+       git push origin v1.2.1
+
+
+【八、注意事项】
+
+  ✓ 禁止直接 push 到 main 分支
+  ✓ 禁止 force push (git push -f)
+  ✓ 每次提交前先 pull 最新代码
+  ✓ Commit Message 必须遵循格式规范
+  ✓ PR 标题必须关联 TAPD 需求/缺陷号
+  ✓ .env 等敏感配置文件不要提交到仓库
+  ✓ 功能分支合入后及时删除
+  ✓ 有冲突时在自己分支上解决，不要在 dev/main 上解决
+
+
+========================================================
+  最后更新: 2026-04-18
+  编制人: 鞠星冉
+========================================================

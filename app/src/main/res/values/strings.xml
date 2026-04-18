@@ -1,0 +1,70 @@
+<resources>
+    <!-- 应用名称 -->
+    <string name="app_name">SugarGuard AI</string>
+    <string name="app_subtitle">青少年智能控糖助手</string>
+    
+    <!-- 主页面文本 -->
+    <string name="welcome_title">🍃 SugarGuard AI 智能控糖助手</string>
+    <string name="welcome_subtitle">选择你需要的AI助手服务</string>
+    <string name="user_greeting">青少年用户</string>
+    <string name="health_score_format">今日健康评分：%d分 ✨</string>
+    
+    <!-- AI智能体模块 -->
+    <string name="food_recognition_title">食物识别专家</string>
+    <string name="food_recognition_desc">拍照识别食物营养</string>
+    <string name="nutrition_analysis_title">营养分析师</string>
+    <string name="nutrition_analysis_desc">专业营养健康分析</string>
+    <string name="health_chat_title">健康对话助手</string>
+    <string name="health_chat_desc">24/7智能健康问答</string>
+    <string name="drink_recommendation_title">饮品推荐引擎</string>
+    <string name="drink_recommendation_desc">智能健康饮品推荐</string>
+    
+    <!-- 健康数据 -->
+    <string name="health_data_title">📊 今日健康数据</string>
+    <string name="sugar_intake_label">糖分摄入</string>
+    <string name="calorie_intake_label">卡路里</string>
+    <string name="water_intake_label">饮水量</string>
+    <string name="sugar_unit">g</string>
+    <string name="calorie_unit">kcal</string>
+    <string name="water_unit">杯</string>
+    
+    <!-- 快捷操作 -->
+    <string name="quick_photo_btn">📷 快速拍照</string>
+    <string name="ask_ai_btn">🤖 问AI助手</string>
+    
+    <!-- 底部导航 -->
+    <string name="nav_home">首页</string>
+    <string name="nav_diary">饮食日记</string>
+    <string name="nav_analysis">健康分析</string>
+    <string name="nav_chat">AI对话</string>
+    <string name="nav_profile">个人中心</string>
+    
+    <!-- 用户相关 -->
+    <string name="profile_settings">个人设置</string>
+    <string name="logout">退出登录</string>
+    <string name="logout_confirm_title">退出登录</string>
+    <string name="logout_confirm_message">确定要退出登录吗？</string>
+    <string name="confirm">确定</string>
+    <string name="cancel">取消</string>
+    
+    <!-- 功能开发中提示 -->
+    <string name="feature_in_development">功能开发中...</string>
+    <string name="coming_soon">敬请期待</string>
+    
+    <!-- 错误和状态信息 -->
+    <string name="network_error">网络连接失败，请检查网络设置</string>
+    <string name="loading">加载中...</string>
+    <string name="retry">重试</string>
+    <string name="success">操作成功</string>
+    <string name="failed">操作失败</string>
+    
+    <!-- 权限相关 -->
+    <string name="camera_permission_required">需要相机权限来拍照识别食物</string>
+    <string name="storage_permission_required">需要存储权限来保存照片</string>
+    <string name="location_permission_required">需要位置权限来推荐附近的健康饮品店</string>
+    
+    <!-- 健康提示 -->
+    <string name="daily_sugar_limit_warning">今日糖分摄入已接近推荐上限</string>
+    <string name="drink_water_reminder">记得多喝水哦！💧</string>
+    <string name="healthy_choice_praise">很棒的健康选择！👍</string>
+</resources>

@@ -1,0 +1,92 @@
+# === IDE & Editor ===
+.idea/
+.vscode/
+.cursor/
+*.iml
+.DS_Store
+local.properties
+
+# === Build Output ===
+.gradle/
+build/
+target/
+*.class
+*.jar
+*.war
+
+# === Temp ===
+.tmp/
+
+# === Android ===
+/captures
+.externalNativeBuild
+.cxx
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+ai-service/.env
+ai-service/models_cache/
+ai-service/data/faiss_index/
+
+# === Root screenshots & images ===
+/*.png
+/images/
+/image/
+
+# === Documentation / coursework (non-code) ===
+/综合实践/
+/课程报告/
+/排版/
+/图/
+/PPT图片/
+/PPT图表/
+/功能展示/
+/setting/
+/软件设计/
+/软件需求/
+
+# === Documentation files in root ===
+/工作留痕.txt
+/修改点汇总记录.txt
+/修改留痕记录.txt
+/运行指南.txt
+/设计文档.md
+/功能文档.md
+/软件说明书及测试文档.txt
+/DEPLOYMENT.md
+/README.md
+/API一键生成_*.txt
+/API兑换结果_*.txt
+/anr.xml
+/nav.xml
+/备注
+/命令
+/功能说明与数据流文档.txt
+/GIT_BRANCH_STRATEGY.md
+
+# === Legacy / non-essential directories ===
+/backend/
+/logging/
+/monitoring/
+/nginx/
+/performance-tests/
+/data/
+
+# === Uploads ===
+backend-api/uploads/
+
+# === Legacy Node.js directories in backend-api ===
+backend-api/controllers/
+backend-api/config/
+backend-api/data/
+backend-api/middleware/
+backend-api/models/
+backend-api/routes/
+
+# === Logs ===
+*.log

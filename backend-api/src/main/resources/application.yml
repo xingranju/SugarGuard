@@ -1,0 +1,67 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: user-management-api
+  
+  # 数据库配置 - 连接到MySQL数据库
+  datasource:
+    url: jdbc:mysql://localhost:3306/Android_health_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: update  # 自动更新表结构，保留现有数据
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  
+  # JSON配置
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    property-naming-strategy: SNAKE_CASE  # 使用snake_case命名策略
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB        # 单个文件最大10MB
+      max-request-size: 10MB     # 请求最大10MB
+      file-size-threshold: 2KB   # 缓冲阈值
+
+# 文件上传路径配置
+file:
+  upload:
+    dir: uploads
+    avatar-dir: uploads/avatars
+    max-size: 10485760  # 10MB
+
+# JWT配置
+jwt:
+  secret: mySecretKey123456789012345678901234567890
+  expiration: 86400  # 24小时，单位：秒
+  refresh-expiration: 604800  # 7天，单位：秒
+
+# AI服务配置
+ai:
+  service:
+    url: http://localhost:8000
+
+# 日志配置
+logging:
+  level:
+    com.example.usermanagement: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
