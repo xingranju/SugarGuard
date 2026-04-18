@@ -88,5 +88,9 @@ backend-api/middleware/
 backend-api/models/
 backend-api/routes/
 
+# === Doc generation scripts (python-docx) ===
+scripts/gen_*_doc.py
+scripts/gen_*_doc*.py
+
 # === Logs ===
 *.log
