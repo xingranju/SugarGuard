@@ -84,6 +84,29 @@ fun DiaryScreen(
     val dailyMeals by mealViewModel.dailyMeals.observeAsState(emptyList())
     val isLoading by mealViewModel.isLoading.observeAsState(false)
     val dailySugarTotal by mealViewModel.dailySugarTotal.observeAsState(0.0)
+    val mealConflict by mealViewModel.mealConflict.observeAsState()
+
+    mealConflict?.let { conflict ->
+        AlertDialog(
+            onDismissRequest = { mealViewModel.dismissConflict() },
+            title = { Text("同名记录已存在") },
+            text = {
+                Text("今日${getMealTypeName(conflict.newMealType)}已有「${conflict.newFoodName}」" +
+                    "（${conflict.existingMeal.sugarContent}g 糖 / ${conflict.existingMeal.calories} kcal）。\n\n" +
+                    "是否再添加一份？")
+            },
+            confirmButton = {
+                TextButton(onClick = { mealViewModel.confirmAddDespiteConflict() }) {
+                    Text("再添加一份")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mealViewModel.dismissConflict() }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(selectedDate) {
         mealViewModel.getDailyMeals(userId, selectedDate)
@@ -91,7 +114,12 @@ fun DiaryScreen(
 
     val today = LocalDate.now()
     val baseDate = selectedDate
-    val weekDates = (6 downTo 0).map { baseDate.minusDays(it.toLong()) }
+    var viewMode by remember { mutableStateOf("week") }
+    val weekDates = if (viewMode == "week") {
+        (-3..3).map { baseDate.plusDays(it.toLong()) }
+    } else {
+        (0 until 30).map { baseDate.minusDays(29L - it) }
+    }
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
@@ -151,12 +179,25 @@ fun DiaryScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF333333)
                 )
-                IconButton(onClick = { showDatePicker = true }) {
-                    Icon(
-                        Icons.Default.DateRange,
-                        contentDescription = "选择日期",
-                        tint = MintGreen
-                    )
+                Row {
+                    TextButton(
+                        onClick = { viewMode = if (viewMode == "week") "month" else "week" },
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Text(
+                            if (viewMode == "week") "7天" else "30天",
+                            fontSize = 12.sp,
+                            color = MintGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = "选择日期",
+                            tint = MintGreen
+                        )
+                    }
                 }
             }
 

@@ -166,8 +166,15 @@ fun UserInfoEditScreen(
         }
     }
     
-    // 保存用户信息
     fun saveUserInfo() {
+        if (birthday.isNotBlank()) {
+            try {
+                java.time.LocalDate.parse(birthday)
+            } catch (_: Exception) {
+                errorMessage = "生日格式不正确，请使用 yyyy-MM-dd 格式（如 2005-03-15）"
+                return
+            }
+        }
         scope.launch {
             try {
                 isLoading = true
@@ -456,17 +463,66 @@ fun UserInfoEditScreen(
                             )
                             
                             // 生日
+                            val birthdayError = remember(birthday) {
+                                if (birthday.isBlank()) null
+                                else {
+                                    try {
+                                        java.time.LocalDate.parse(birthday)
+                                        null
+                                    } catch (_: Exception) {
+                                        "请使用 yyyy-MM-dd 格式（如 2005-03-15）"
+                                    }
+                                }
+                            }
                             OutlinedTextField(
                                 value = birthday,
-                                onValueChange = { birthday = it },
+                                onValueChange = { input ->
+                                    birthday = input.filter { it.isDigit() || it == '-' }.take(10)
+                                },
                                 label = { Text("生日 (yyyy-MM-dd)") },
                                 leadingIcon = {
                                     Icon(Icons.Default.DateRange, "生日")
                                 },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.DateRange, "选择日期",
+                                        modifier = Modifier.clickable { showDatePicker = true }
+                                    )
+                                },
+                                isError = birthdayError != null,
+                                supportingText = birthdayError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 placeholder = { Text("1990-01-01") }
                             )
+
+                            if (showDatePicker) {
+                                val initial = try {
+                                    val ld = java.time.LocalDate.parse(birthday)
+                                    ld.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+                                } catch (_: Exception) {
+                                    System.currentTimeMillis()
+                                }
+                                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initial)
+                                DatePickerDialog(
+                                    onDismissRequest = { showDatePicker = false },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            datePickerState.selectedDateMillis?.let { millis ->
+                                                val ld = java.time.Instant.ofEpochMilli(millis)
+                                                    .atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                                                birthday = ld.toString()
+                                            }
+                                            showDatePicker = false
+                                        }) { Text("确定") }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+                                    }
+                                ) {
+                                    DatePicker(state = datePickerState)
+                                }
+                            }
                         }
                     }
                     

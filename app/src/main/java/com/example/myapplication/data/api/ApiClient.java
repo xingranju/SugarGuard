@@ -30,8 +30,8 @@ public class ApiClient {
             // 创建OkHttp客户端
             OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
                     .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(30, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS);
+                    .readTimeout(120, TimeUnit.SECONDS)
+                    .writeTimeout(60, TimeUnit.SECONDS);
 
             // 添加请求头拦截器
             httpClient.addInterceptor(new AuthInterceptor(context));

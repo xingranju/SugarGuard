@@ -42,15 +42,17 @@ public class MealController {
             @RequestParam(value = "portion_size", required = false) Float portionSize,
             @RequestParam(value = "notes", required = false) String notes,
             @RequestParam("meal_type") String mealType,
+            @RequestParam(value = "ai_advice", required = false) String aiAdvice,
             @RequestParam("image") MultipartFile image
     ) {
         try {
-            logger.info("收到添加饮食记录请求（带图片）: 用户={}, 食物={}", userId, foodName);
+            logger.info("收到添加饮食记录请求（带图片）: 用户={}, 食物={}, aiAdviceLen={}",
+                userId, foodName, aiAdvice == null ? 0 : aiAdvice.length());
             
             MealRecord meal = mealService.addMealWithImage(
                 userId, foodName, sugarContent, calories, 
                 protein, fat, carbohydrate, portionSize, 
-                notes, mealType, image
+                notes, mealType, aiAdvice, image
             );
             
             Map<String, Object> response = new HashMap<>();
@@ -78,15 +80,17 @@ public class MealController {
             @RequestParam(value = "carbohydrate", required = false) Float carbohydrate,
             @RequestParam(value = "portion_size", required = false) Float portionSize,
             @RequestParam(value = "notes", required = false) String notes,
-            @RequestParam("meal_type") String mealType
+            @RequestParam("meal_type") String mealType,
+            @RequestParam(value = "ai_advice", required = false) String aiAdvice
     ) {
         try {
-            logger.info("收到添加饮食记录请求（无图片）: 用户={}, 食物={}", userId, foodName);
+            logger.info("收到添加饮食记录请求（无图片）: 用户={}, 食物={}, aiAdviceLen={}",
+                userId, foodName, aiAdvice == null ? 0 : aiAdvice.length());
             
             MealRecord meal = mealService.addMeal(
                 userId, foodName, sugarContent, calories, 
                 protein, fat, carbohydrate, portionSize, 
-                notes, mealType
+                notes, mealType, aiAdvice
             );
             
             Map<String, Object> response = new HashMap<>();
@@ -107,17 +111,29 @@ public class MealController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> addMealJson(
             @RequestBody MealRequestDto dto) {
         try {
-            logger.info("收到添加饮食记录请求(JSON): 用户={}, 食物={}, imagePath={}", dto.getUserId(), dto.getFoodName(), dto.getImagePath());
+            logger.info("收到添加饮食记录请求(JSON): 用户={}, 食物={}, imagePath={}, aiAdviceLen={}",
+                dto.getUserId(), dto.getFoodName(), dto.getImagePath(),
+                dto.getAiAdvice() == null ? 0 : dto.getAiAdvice().length());
             
             MealRecord meal = mealService.addMeal(
                 dto.getUserId(), dto.getFoodName(), dto.getSugarContent(), dto.getCalories(),
                 dto.getProtein(), dto.getFat(), dto.getCarbohydrate(),
                 dto.getPortionSizeAsFloat(),
-                dto.getNotes(), dto.getMealType()
+                dto.getNotes(), dto.getMealType(), dto.getAiAdvice()
             );
 
-            if (dto.getImagePath() != null && !dto.getImagePath().isEmpty()) {
+            boolean needResave = false;
+            if (dto.getImagePath() != null && !dto.getImagePath().isEmpty()
+                    && (meal.getImagePath() == null || meal.getImagePath().isEmpty())) {
                 meal.setImagePath(dto.getImagePath());
+                needResave = true;
+            }
+            if (dto.getAiAdvice() != null && !dto.getAiAdvice().isEmpty()
+                    && (meal.getAiAdvice() == null || meal.getAiAdvice().isEmpty())) {
+                meal.setAiAdvice(dto.getAiAdvice());
+                needResave = true;
+            }
+            if (needResave) {
                 meal = mealService.saveMealRecord(meal);
             }
             

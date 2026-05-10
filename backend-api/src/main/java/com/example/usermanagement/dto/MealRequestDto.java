@@ -29,6 +29,8 @@ public class MealRequestDto {
     private String mealType;
     @JsonProperty("image_path")
     private String imagePath;
+    @JsonProperty("ai_advice")
+    private String aiAdvice;
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
@@ -56,6 +58,8 @@ public class MealRequestDto {
     public void setMealType(String mealType) { this.mealType = mealType; }
     public String getImagePath() { return imagePath; }
     public void setImagePath(String imagePath) { this.imagePath = imagePath; }
+    public String getAiAdvice() { return aiAdvice; }
+    public void setAiAdvice(String aiAdvice) { this.aiAdvice = aiAdvice; }
 
     public Float getPortionSizeAsFloat() {
         if (portionSize == null || portionSize.isEmpty()) return null;

@@ -318,9 +318,13 @@ private fun FeaturedDrinkSection() {
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (!drink.imageUrl.isNullOrBlank()) {
+                            val safeUrl52 = drink.imageUrl?.takeIf { it.isNotBlank() && !it.contains("source.unsplash.com") }
+                            if (safeUrl52 != null) {
                                 AsyncImage(
-                                    model = drink.imageUrl,
+                                    model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                        .data(safeUrl52).crossfade(true)
+                                        .error(android.R.drawable.ic_menu_gallery)
+                                        .fallback(android.R.drawable.ic_menu_gallery).build(),
                                     contentDescription = drink.drinkName,
                                     modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)),
                                     contentScale = ContentScale.Crop
@@ -449,9 +453,13 @@ private fun FeaturedDrinkSection() {
                                 .padding(vertical = 10.dp, horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (!drink.imageUrl.isNullOrBlank()) {
+                            val safeUrl40 = drink.imageUrl?.takeIf { it.isNotBlank() && !it.contains("source.unsplash.com") }
+                            if (safeUrl40 != null) {
                                 AsyncImage(
-                                    model = drink.imageUrl,
+                                    model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                        .data(safeUrl40).crossfade(true)
+                                        .error(android.R.drawable.ic_menu_gallery)
+                                        .fallback(android.R.drawable.ic_menu_gallery).build(),
                                     contentDescription = drink.drinkName,
                                     modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
                                     contentScale = ContentScale.Crop
@@ -571,9 +579,16 @@ private fun FavoriteDrinksSection() {
             favDrinks.forEach { drink ->
                 Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = Color.White, shadowElevation = 1.dp) {
                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (!drink.imageUrl.isNullOrBlank()) {
-                            AsyncImage(model = drink.imageUrl, contentDescription = drink.drinkName,
-                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                        val safeUrl48 = drink.imageUrl?.takeIf { it.isNotBlank() && !it.contains("source.unsplash.com") }
+                        if (safeUrl48 != null) {
+                            AsyncImage(
+                                model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                    .data(safeUrl48).crossfade(true)
+                                    .error(android.R.drawable.ic_menu_gallery)
+                                    .fallback(android.R.drawable.ic_menu_gallery).build(),
+                                contentDescription = drink.drinkName,
+                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop)
                         } else {
                             Surface(modifier = Modifier.size(48.dp), shape = RoundedCornerShape(8.dp), color = MintBg) {
                                 Box(contentAlignment = Alignment.Center) { Text("🥤", fontSize = 20.sp) }

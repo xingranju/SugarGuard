@@ -45,9 +45,72 @@ class LocalMealViewModel : ViewModel() {
     private val _addMealSuccess = MutableLiveData(false)
     val addMealSuccess: LiveData<Boolean> = _addMealSuccess
 
+    data class MealConflict(
+        val existingMeal: MealRecord,
+        val newFoodName: String,
+        val newMealType: String,
+        val pendingArgs: PendingAddArgs
+    )
+    data class PendingAddArgs(
+        val userId: Int, val foodName: String, val sugarContent: Double, val calories: Double,
+        val protein: Double?, val fat: Double?, val carbohydrate: Double?,
+        val portionSize: String?, val notes: String?, val mealType: String,
+        val imageUrl: String?, val aiAdvice: String?
+    )
+
+    private val _mealConflict = MutableLiveData<MealConflict?>(null)
+    val mealConflict: LiveData<MealConflict?> = _mealConflict
+
     fun resetAddState() {
         _addMealSuccess.value = false
         _errorMessage.value = ""
+        _mealConflict.value = null
+    }
+
+    fun dismissConflict() { _mealConflict.value = null }
+
+    fun confirmAddDespiteConflict() {
+        val pending = _mealConflict.value?.pendingArgs ?: return
+        _mealConflict.value = null
+        forceAddMeal(pending)
+    }
+
+    private fun forceAddMeal(p: PendingAddArgs) {
+        val localFile = p.imageUrl?.let { path -> File(path).takeIf { it.exists() && it.isFile } }
+        if (localFile != null) {
+            addMealWithImageMultipart(
+                p.userId, p.foodName, p.sugarContent, p.calories, p.protein, p.fat, p.carbohydrate,
+                p.portionSize, p.notes, p.mealType, p.aiAdvice, localFile
+            )
+            return
+        }
+        _isLoading.value = true
+        val mealDate = _selectedDate.value ?: LocalDate.now()
+        val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+        val request = AddMealRequest(
+            userId = p.userId, mealDate = mealDate.toString(), mealTime = time,
+            mealType = p.mealType, foodName = p.foodName, sugarContent = p.sugarContent,
+            calories = p.calories, protein = p.protein, fat = p.fat, carbohydrate = p.carbohydrate,
+            portionSize = p.portionSize, notes = p.notes, imagePath = p.imageUrl, aiAdvice = p.aiAdvice
+        )
+        mealApi.addMeal(request).enqueue(object : Callback<ApiResponse<MealRecord>> {
+            override fun onResponse(call: Call<ApiResponse<MealRecord>>, response: Response<ApiResponse<MealRecord>>) {
+                _isLoading.postValue(false)
+                if (response.isSuccessful && response.body()?.isSuccess == true) {
+                    _errorMessage.postValue("添加成功!")
+                    _addMealSuccess.postValue(true)
+                    getDailyMeals(p.userId, _selectedDate.value ?: LocalDate.now())
+                } else {
+                    _addMealSuccess.postValue(false)
+                    _errorMessage.postValue("添加失败: ${response.body()?.message ?: "未知错误"}")
+                }
+            }
+            override fun onFailure(call: Call<ApiResponse<MealRecord>>, t: Throwable) {
+                _isLoading.postValue(false)
+                _addMealSuccess.postValue(false)
+                _errorMessage.postValue("网络错误: ${t.message}")
+            }
+        })
     }
 
     fun getDailyMeals(userId: Int, date: LocalDate) {
@@ -89,7 +152,8 @@ class LocalMealViewModel : ViewModel() {
     fun addMeal(
         userId: Int, foodName: String, sugarContent: Double, calories: Double,
         protein: Double?, fat: Double?, carbohydrate: Double?,
-        portionSize: String?, notes: String?, mealType: String, imageUrl: String?
+        portionSize: String?, notes: String?, mealType: String, imageUrl: String?,
+        aiAdvice: String? = null
     ) {
         val currentMs = System.currentTimeMillis()
         recentAddedKeys.entries.removeIf { currentMs - it.value > 120_000 }
@@ -107,12 +171,17 @@ class LocalMealViewModel : ViewModel() {
             return
         }
 
-        val existingDup = _dailyMeals.value?.any {
+        val existingMeal = _dailyMeals.value?.find {
             it.foodName.trim().equals(foodName.trim(), ignoreCase = true) && it.mealType == mealType
-        } == true
-        if (existingDup) {
-            Log.w(TAG, "同名同餐次已存在，拦截: $foodName ($mealType)")
-            _errorMessage.postValue("今日${getMealLabel(mealType)}已记录「${foodName}」，不可重复添加")
+        }
+        if (existingMeal != null) {
+            Log.w(TAG, "同名同餐次已存在，弹出确认: $foodName ($mealType)")
+            _mealConflict.postValue(MealConflict(
+                existingMeal = existingMeal,
+                newFoodName = foodName,
+                newMealType = mealType,
+                pendingArgs = PendingAddArgs(userId, foodName, sugarContent, calories, protein, fat, carbohydrate, portionSize, notes, mealType, imageUrl, aiAdvice)
+            ))
             return
         }
 
@@ -126,18 +195,18 @@ class LocalMealViewModel : ViewModel() {
         if (localFile != null) {
             addMealWithImageMultipart(
                 userId, foodName, sugarContent, calories, protein, fat, carbohydrate,
-                portionSize, notes, mealType, localFile
+                portionSize, notes, mealType, aiAdvice, localFile
             )
             return
         }
 
         _isLoading.value = true
-        val now = LocalDate.now()
+        val mealDate = _selectedDate.value ?: LocalDate.now()
         val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
 
         val request = AddMealRequest(
             userId = userId,
-            mealDate = now.toString(),
+            mealDate = mealDate.toString(),
             mealTime = time,
             mealType = mealType,
             foodName = foodName,
@@ -148,7 +217,8 @@ class LocalMealViewModel : ViewModel() {
             carbohydrate = carbohydrate,
             portionSize = portionSize,
             notes = notes,
-            imagePath = imageUrl
+            imagePath = imageUrl,
+            aiAdvice = aiAdvice
         )
 
         mealApi.addMeal(request).enqueue(object : Callback<ApiResponse<MealRecord>> {
@@ -188,6 +258,7 @@ class LocalMealViewModel : ViewModel() {
         portionSize: String?,
         notes: String?,
         mealType: String,
+        aiAdvice: String?,
         imageFile: File
     ) {
         _isLoading.value = true
@@ -214,6 +285,8 @@ class LocalMealViewModel : ViewModel() {
             imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         )
 
+        val aiAdviceBody = aiAdvice?.takeIf { it.isNotBlank() }?.let { txt(it) }
+
         mealApi.addMealWithImage(
             userId = userIdBody,
             foodName = txt(foodName),
@@ -225,6 +298,7 @@ class LocalMealViewModel : ViewModel() {
             portionSize = portionBody,
             notes = notesBody,
             mealType = mealTypeBody,
+            aiAdvice = aiAdviceBody,
             image = imagePart
         ).enqueue(object : Callback<ApiResponse<Map<String, Any>>> {
             override fun onResponse(
@@ -303,6 +377,7 @@ class LocalMealViewModel : ViewModel() {
                 carbohydrate = (map["carbohydrate"] as? Number)?.toDouble(),
                 portionSize = map["portionSize"] as? String ?: map["portion_size"] as? String,
                 notes = map["notes"] as? String,
+                aiAdvice = map["aiAdvice"] as? String ?: map["ai_advice"] as? String,
                 createdAt = map["createdAt"] as? String ?: map["created_at"] as? String
             )
         }

@@ -78,11 +78,19 @@ class DeepSeekAgent:
             对话响应
         """
         try:
-            # 构建增强的用户消息（包含上下文）
             enhanced_message = user_message
             if user_context:
                 context_str = self._format_user_context(user_context)
                 enhanced_message = f"{context_str}\n\n用户问题：{user_message}"
+
+            try:
+                from agents.rag_knowledge import get_rag_system
+                rag = get_rag_system()
+                rag_context = rag.get_relevant_context(user_message, max_length=800)
+                if rag_context:
+                    enhanced_message = f"{enhanced_message}\n\n【参考知识】\n{rag_context}"
+            except Exception as rag_err:
+                logger.debug(f"RAG检索跳过: {rag_err}")
             
             # 构建消息列表
             messages = [
@@ -91,7 +99,7 @@ class DeepSeekAgent:
             
             # 添加对话历史
             if chat_history:
-                for item in chat_history[-3:]:  # 只保留最近3轮
+                for item in chat_history[-5:]:
                     if "user_message" in item:
                         messages.append(HumanMessage(content=item["user_message"]))
                     if "bot_response" in item:

@@ -58,9 +58,13 @@ def health_score(sugar_g: float, cal: float, caffeine: float = 0) -> int:
     return max(10, min(100, int(round(s))))
 
 
+_img_counter = 0
+
 def img(slug: str) -> str:
-    """统一用 Unsplash 的 featured 接口，按关键词出图，避免死链"""
-    return f"https://source.unsplash.com/featured/600x600/?{slug}"
+    """使用 picsum.photos 稳定占位图（source.unsplash.com 已停用）"""
+    global _img_counter
+    _img_counter += 1
+    return f"https://picsum.photos/seed/drink{_img_counter}/600/600"
 
 
 DRINKS: List[Drink] = []

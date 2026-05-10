@@ -50,6 +50,9 @@ public class MealRecord {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
     
+    @Column(name = "ai_advice", columnDefinition = "TEXT")
+    private String aiAdvice;
+    
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     
@@ -167,6 +170,14 @@ public class MealRecord {
     
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+    
+    public String getAiAdvice() {
+        return aiAdvice;
+    }
+    
+    public void setAiAdvice(String aiAdvice) {
+        this.aiAdvice = aiAdvice;
     }
     
     public LocalDateTime getCreatedAt() {

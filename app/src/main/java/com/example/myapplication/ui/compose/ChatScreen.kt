@@ -112,7 +112,8 @@ fun ChatScreen(
                 ChatTab.QA -> HealthQAContent(
                     viewModel = viewModel,
                     chatResponse = chatResponse,
-                    isLoading = isLoading
+                    isLoading = isLoading,
+                    errorMessage = errorMessage
                 )
                 ChatTab.RECOMMENDATION -> DrinkRecommendationContent(
                     viewModel = viewModel,
@@ -132,7 +133,8 @@ fun ChatScreen(
 fun HealthQAContent(
     viewModel: AIServiceViewModel,
     chatResponse: com.example.myapplication.model.ChatResponse?,
-    isLoading: Boolean
+    isLoading: Boolean,
+    errorMessage: String? = null
 ) {
     val context = LocalContext.current
     var message by remember { mutableStateOf("") }
@@ -149,6 +151,15 @@ fun HealthQAContent(
     val sessionId = remember { "qa_${System.currentTimeMillis()}" }
     var historyLoaded by remember { mutableStateOf(false) }
 
+    // BUG 修复 2026-04-22：记录上一次已消费的 AI 回复引用，避免因 HealthQAContent 重建
+    // （tab 切换回来）时 LiveData 的 sticky 值再次触发 LaunchedEffect 追加重复 AI 气泡。
+    var lastConsumedResponse by remember { mutableStateOf<com.example.myapplication.model.ChatResponse?>(null) }
+    // BUG 修复 2026-04-22：记录上一次已展示的错误消息，避免 errorMessage 残留再次进屏时重复提示。
+    var lastConsumedError by remember { mutableStateOf<String?>(null) }
+    // BUG 修复 2026-04-22：若最近一次发送在 loading 结束后仍没有追加 AI 回复，
+    // 提示用户"AI 未响应，请重试"；由 isLoading 下降沿触发。
+    var previousLoading by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         if (!historyLoaded && conversationDao != null) {
             withContext(Dispatchers.IO) {
@@ -157,7 +168,7 @@ fun HealthQAContent(
                     val messages = allConvos.map { entity ->
                         ChatMessage(content = entity.content, isUser = entity.role == "user")
                     }
-                    if (messages.isNotEmpty()) {
+                    if (messages.isNotEmpty() && chatHistory.isEmpty()) {
                         chatHistory = messages
                     }
                 } catch (_: Exception) {}
@@ -171,7 +182,9 @@ fun HealthQAContent(
 
     LaunchedEffect(chatResponse) {
         chatResponse?.let {
+            if (it === lastConsumedResponse) return@let
             if (it.isSuccess && it.response != null) {
+                lastConsumedResponse = it
                 chatHistory = chatHistory + ChatMessage(content = it.response, isUser = false)
                 conversationDao?.let { dao ->
                     coroutineScope.launch(Dispatchers.IO) {
@@ -194,6 +207,48 @@ fun HealthQAContent(
             }
         }
     }
+
+    // BUG 修复 2026-04-22：AI 失败（超时 / 网络 / 后端 502）时，
+    // ViewModel 只更新 errorMessage 不更新 chatResponse，原代码无任何 UI 反馈导致"发消息没回答"。
+    // 在此将 errorMessage 作为一条系统气泡追加，让用户明确感知失败状态。
+    LaunchedEffect(errorMessage) {
+        val err = errorMessage
+        if (!err.isNullOrBlank() && err != lastConsumedError) {
+            val lastMsg = chatHistory.lastOrNull()
+            if (lastMsg != null && lastMsg.isUser) {
+                lastConsumedError = err
+                chatHistory = chatHistory + ChatMessage(
+                    content = "⚠️ AI 回复失败：$err\n请稍后重试或检查网络。",
+                    isUser = false
+                )
+                coroutineScope.launch {
+                    scrollState.animateScrollToItem(chatHistory.size - 1)
+                }
+            }
+        }
+    }
+
+    // BUG 修复 2026-04-22：isLoading 下降沿兜底，当 AI 回调既未触发 chatResponse 也未写 errorMessage
+    // （极端情况下发生于 Retrofit 底层异常被 VM onFailure 吞掉消息体）时，
+    // 避免用户看到自己的消息永远没有回复。
+    LaunchedEffect(isLoading) {
+        val wasLoading = previousLoading
+        previousLoading = isLoading
+        if (wasLoading && !isLoading) {
+            val lastMsg = chatHistory.lastOrNull()
+            val hadFreshResponse = chatResponse?.let { it === lastConsumedResponse } == true
+            val hadFreshError = !errorMessage.isNullOrBlank() && errorMessage == lastConsumedError
+            if (lastMsg != null && lastMsg.isUser && !hadFreshResponse && !hadFreshError) {
+                chatHistory = chatHistory + ChatMessage(
+                    content = "⚠️ AI 暂未响应，请稍后再试。",
+                    isUser = false
+                )
+                coroutineScope.launch {
+                    scrollState.animateScrollToItem(chatHistory.size - 1)
+                }
+            }
+        }
+    }
     
     val suggestedQuestions = listOf(
         "🧃 推荐几款低糖饮品",
@@ -205,7 +260,16 @@ fun HealthQAContent(
     )
 
     fun sendMessage(text: String) {
-        val msgText = text.replace(Regex("^[\\p{So}\\p{Cn}]+ "), "")
+        // BUG 修复 2026-04-22：阻止 loading 期间连发。
+        // 原因：AIServiceViewModel 里 chatResponse 用 MutableLiveData，
+        // 连续 postValue 会被主线程 frame 合并丢失中间值，
+        // 导致多条用户消息只有最后一条能拿到 AI 回答。
+        if (isLoading) {
+            Toast.makeText(context, "AI 正在回复中，请稍候...", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val msgText = text.replace(Regex("^[\\p{So}\\p{Cn}]+ "), "").trim()
+        if (msgText.isEmpty()) return
         message = ""
         chatHistory = chatHistory + ChatMessage(content = msgText, isUser = true)
         conversationDao?.let { dao ->
@@ -220,6 +284,9 @@ fun HealthQAContent(
                     ))
                 } catch (_: Exception) {}
             }
+        }
+        coroutineScope.launch {
+            scrollState.animateScrollToItem(chatHistory.size - 1)
         }
         viewModel.chat(userId.toInt(), msgText)
     }

@@ -15,7 +15,12 @@ import com.example.myapplication.notification.SugarGuardNotifications
 import java.util.concurrent.TimeUnit
 
 class MyApplication : Application() {
-    
+
+    companion object {
+        // BUG-021 修复：通知轮询间隔常量化，方便统一调整与单元测试。
+        const val NOTIF_POLL_INTERVAL_MINUTES: Long = 15L
+    }
+
     private var defaultExceptionHandler: Thread.UncaughtExceptionHandler? = null
     
     override fun onCreate() {
@@ -30,7 +35,13 @@ class MyApplication : Application() {
         Log.d("MyApplication", "RetrofitClient已初始化")
 
         SugarGuardNotifications.ensureChannel(this)
-        val notifWork = PeriodicWorkRequestBuilder<NotificationPollWorker>(15, TimeUnit.MINUTES)
+        // BUG-021 修复：轮询间隔从硬编码 15 分钟提取为常量，
+        // 并将唯一 Work 的策略由 KEEP 改为 UPDATE，
+        // 保证后续调整频率后已安装客户端立即生效，而不是永远沿用旧值。
+        val notifWork = PeriodicWorkRequestBuilder<NotificationPollWorker>(
+            NOTIF_POLL_INTERVAL_MINUTES,
+            TimeUnit.MINUTES
+        )
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -40,7 +51,7 @@ class MyApplication : Application() {
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "sugarguard_notif_poll",
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             notifWork
         )
         

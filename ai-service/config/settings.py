@@ -8,9 +8,10 @@ from typing import Optional
 class Settings(BaseSettings):
     """应用配置"""
     
-    # DeepSeek API配置
-    DEEPSEEK_API_KEY: str = "sk-9388a182662a4942aada06dc4d093fb1"
-    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+    # DeepSeek API配置（通过 Silra 聚合器，OpenAI 兼容协议）
+    # 真实值以 .env 为准；此处仅作兜底占位，生产环境不应依赖默认值
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.silra.cn/v1"
     DEEPSEEK_MODEL: str = "deepseek-chat"
     
     # MySQL数据库配置

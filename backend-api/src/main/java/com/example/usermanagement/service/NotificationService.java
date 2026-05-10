@@ -149,10 +149,20 @@ public class NotificationService {
         logger.info("========== 定时通知生成完毕 ==========");
     }
 
+    // [BUG-021 续] 每类通知独立的"发送间隔"（冷却窗口）。
+    // 原实现把 since 统一写成今天凌晨（todayStart），等价于"每类每天一条"，
+    // 导致第一条发出后一整天不再按频率重复提醒，与设置页"每 2 小时饮水提醒一次"完全不符。
+    // 现按业务语义拆成独立窗口：
+    private static final long WATER_REMINDER_COOLDOWN_MIN = 120;   // 每 2 小时
+    private static final long SUGAR_ALERT_COOLDOWN_MIN = 30;       // 超标时每 30 分钟最多一次
+    private static final long RECORD_REMINDER_COOLDOWN_MIN = 180;  // 每 3 小时
+    private static final long MEAL_REMINDER_COOLDOWN_MIN = 60;     // 每餐窗口内 1 小时
+    private static final long WEEKLY_REPORT_COOLDOWN_MIN = 7 * 24 * 60; // 每周
+
     private void generateNotificationsForUser(Long userId) {
         LocalDate today = LocalDate.now();
-        LocalDateTime todayStart = today.atStartOfDay();
-        LocalTime nowTime = LocalTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        LocalTime nowTime = now.toLocalTime();
 
         UserNotificationSettings settings = settingsRepository.findByUserId(userId)
                 .orElseGet(() -> createDefaultSettings(userId));
@@ -164,19 +174,19 @@ public class NotificationService {
         float sugarLimit = profileOpt.map(UserHealthProfile::getSugarLimit).orElse(25f);
 
         if (Boolean.TRUE.equals(settings.getSugarAlert())) {
-            checkSugarOverLimit(userId, today, sugarLimit, todayStart);
+            checkSugarOverLimit(userId, today, sugarLimit, now.minusMinutes(SUGAR_ALERT_COOLDOWN_MIN));
         }
         if (!inQuietHours && Boolean.TRUE.equals(settings.getRecordReminder())) {
-            checkRecordReminder(userId, today, todayStart);
+            checkRecordReminder(userId, today, now.minusMinutes(RECORD_REMINDER_COOLDOWN_MIN));
         }
         if (!inQuietHours && Boolean.TRUE.equals(settings.getMealReminder())) {
-            checkMealReminder(userId, today, todayStart, nowTime);
+            checkMealReminder(userId, today, now.minusMinutes(MEAL_REMINDER_COOLDOWN_MIN), nowTime);
         }
         if (!inQuietHours && Boolean.TRUE.equals(settings.getWaterReminder())) {
-            checkWaterReminder(userId, today, todayStart);
+            checkWaterReminder(userId, today, now.minusMinutes(WATER_REMINDER_COOLDOWN_MIN));
         }
         if (Boolean.TRUE.equals(settings.getWeeklyReport())) {
-            checkWeeklyReport(userId, today, todayStart);
+            checkWeeklyReport(userId, today, now.minusMinutes(WEEKLY_REPORT_COOLDOWN_MIN));
         }
     }
 

@@ -47,6 +47,7 @@ import android.widget.Toast
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import android.hardware.camera2.CameraManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,7 +69,24 @@ fun RecognitionScreen(
 
     var selectedImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var flashOn by remember { mutableStateOf(true) }
+    var flashOn by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                val cm = context.getSystemService(android.content.Context.CAMERA_SERVICE) as CameraManager
+                cm.setTorchMode(cm.cameraIdList.first(), false)
+            } catch (_: Exception) {}
+        }
+    }
+
+    LaunchedEffect(flashOn) {
+        try {
+            val cm = context.getSystemService(android.content.Context.CAMERA_SERVICE) as CameraManager
+            val cameraId = cm.cameraIdList.firstOrNull() ?: return@LaunchedEffect
+            cm.setTorchMode(cameraId, flashOn)
+        } catch (_: Exception) {}
+    }
     var showResult by remember { mutableStateOf(false) }
     var showLoading by remember { mutableStateOf(false) }
     var showModeSelector by remember { mutableStateOf(false) }
@@ -702,10 +720,11 @@ fun RecognitionResultPage(
     LaunchedEffect(imageBitmap) {
         imageBitmap?.let { bitmap ->
             try {
-                val file = File(context.cacheDir, "meal_${System.currentTimeMillis()}.jpg")
-                val outputStream = FileOutputStream(file)
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
-                outputStream.close()
+                val dir = File(context.filesDir, "meal_images").apply { mkdirs() }
+                val file = File(dir, "meal_${System.currentTimeMillis()}.jpg")
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                }
                 savedImageFile = file
             } catch (e: Exception) {
                 Log.e("RecognitionResultPage", "保存图片失败", e)
@@ -1134,7 +1153,36 @@ fun SaveToMealDiarySheet(
     val context = LocalContext.current
     var selectedMealType by remember { mutableStateOf<com.example.myapplication.model.MealType?>(null) }
     var selectedPortion by remember { mutableStateOf("full") }
-    val aiAdviceText = result.healthAssessment?.healthAdvice ?: result.recommendation
+    val aiAdviceText: String? = run {
+        val primary = result.healthAssessment?.healthAdvice
+            ?.takeIf { it.isNotBlank() }
+            ?: result.recommendation?.takeIf { it.isNotBlank() }
+        if (primary != null) return@run primary
+        val ha = result.healthAssessment
+        val parts = mutableListOf<String>()
+        ha?.sugarWarning?.takeIf { it.isNotBlank() }?.let { parts += it }
+        ha?.sugarLevel?.takeIf { it.isNotBlank() }?.let { parts += "糖分等级：$it" }
+        ha?.calorieLevel?.takeIf { it.isNotBlank() }?.let { parts += "热量等级：$it" }
+        ha?.healthLevel?.takeIf { it.isNotBlank() }?.let { parts += "综合评估：$it" }
+        val sugar = result.nutrition?.sugarContent ?: 0f
+        val cal = result.nutrition?.calories ?: 0f
+        if (sugar > 0f || cal > 0f) {
+            val tail = buildString {
+                if (sugar > 0f) append("含糖约 ${sugar.toInt()}g")
+                if (sugar > 0f && cal > 0f) append("、")
+                if (cal > 0f) append("热量约 ${cal.toInt()}kcal")
+                append("。")
+                when {
+                    sugar > 25f -> append("单份已超过 WHO 每日建议量，请控制摄入。")
+                    sugar > 15f -> append("糖分偏高，建议作为偶尔享用。")
+                    sugar > 5f  -> append("糖分适中，可适量摄入。")
+                    else        -> append("低糖饮品，相对友好。")
+                }
+            }
+            parts += tail
+        }
+        parts.joinToString("；").ifBlank { null }
+    }
     val defaultNotesPreview = aiAdviceText?.take(100) ?: ""
     var notes by remember { mutableStateOf(defaultNotesPreview) }
     var foodName by remember { mutableStateOf(result.recognition?.drinkName ?: "未知食物") }
@@ -1416,7 +1464,8 @@ fun SaveToMealDiarySheet(
                             portionSize = portionDesc,
                             notes = finalNotes.ifEmpty { null },
                             mealType = mt.value,
-                            imageUrl = imageFile?.absolutePath
+                            imageUrl = imageFile?.absolutePath,
+                            aiAdvice = aiAdviceText?.takeIf { it.isNotBlank() }
                         )
                     }
                 },
@@ -2119,7 +2168,8 @@ private fun VitRecognitionResultPage(
                     portionSize = portionSize,
                     notes = notes,
                     mealType = mealType,
-                    imageUrl = savedImagePath
+                    imageUrl = savedImagePath,
+                    aiAdvice = aiAdvice.takeIf { it.isNotBlank() }
                 )
             }
         )

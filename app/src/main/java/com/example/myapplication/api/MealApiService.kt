@@ -16,7 +16,8 @@ data class RecentMealDto(
     val sugarContent: Double? = null,
     val calories: Double? = null,
     @SerializedName("imagePath") val imagePath: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    @SerializedName("aiAdvice") val aiAdvice: String? = null
 )
 
 /**
@@ -46,6 +47,7 @@ interface MealApiService {
         @Part("portion_size") portionSize: okhttp3.RequestBody?,
         @Part("notes") notes: okhttp3.RequestBody,
         @Part("meal_type") mealType: okhttp3.RequestBody,
+        @Part("ai_advice") aiAdvice: okhttp3.RequestBody?,
         @Part image: MultipartBody.Part
     ): Call<ApiResponse<Map<String, Any>>>
     

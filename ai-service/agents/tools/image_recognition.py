@@ -16,22 +16,50 @@ os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ['HF_HUB_OFFLINE'] = '1'
 
 
+FOOD_EN_TO_CN = {
+    "espresso": "浓缩咖啡", "cup": "杯装饮品", "coffee mug": "咖啡杯",
+    "teapot": "茶壶", "beer glass": "啤酒杯", "wine bottle": "红酒",
+    "water bottle": "矿泉水", "pop bottle": "汽水", "beer bottle": "啤酒瓶",
+    "red wine": "红酒", "eggnog": "蛋酒", "ice cream": "冰淇淋",
+    "chocolate sauce": "巧克力酱", "pizza": "披萨", "cheeseburger": "芝士汉堡",
+    "hotdog": "热狗", "french loaf": "法棍面包", "pretzel": "椒盐卷饼",
+    "bagel": "贝果", "banana": "香蕉", "strawberry": "草莓",
+    "orange": "橙子", "lemon": "柠檬", "pineapple": "菠萝",
+    "fig": "无花果", "pomegranate": "石榴", "apple": "苹果",
+    "granny smith": "青苹果", "custard apple": "番荔枝", "jackfruit": "菠萝蜜",
+    "mushroom": "蘑菇", "broccoli": "西兰花", "cauliflower": "花菜",
+    "bell pepper": "甜椒", "cucumber": "黄瓜", "head cabbage": "卷心菜",
+    "artichoke": "洋蓟", "zucchini": "西葫芦", "acorn squash": "橡果南瓜",
+    "butternut squash": "冬南瓜", "spaghetti squash": "金丝瓜",
+    "corn": "玉米", "meat loaf": "肉饼", "potpie": "馅饼",
+    "burrito": "墨西哥卷", "carbonara": "卡博纳拉意面",
+    "guacamole": "牛油果酱", "trifle": "英式蛋糕",
+    "ice lolly": "冰棒", "consomme": "清汤",
+    "grocery store": "杂货店", "bakery": "面包店",
+    "plate": "盘子", "tray": "托盘", "bowl": "碗",
+    "dining table": "餐桌", "restaurant": "餐厅",
+}
+
+CONFIDENCE_THRESHOLD = 0.15
+
+
 class ImageRecognitionTool:
     """图像识别工具类"""
     
     def __init__(self):
         """初始化模型"""
         self.device = 0 if torch.cuda.is_available() else -1
-        logger.info(f"使用设备: {'GPU' if self.device == 0 else 'CPU'}")
+        use_fp16 = torch.cuda.is_available()
+        logger.info(f"使用设备: {'GPU (FP16)' if use_fp16 else 'CPU'}")
         
         try:
-            # 加载图像分类模型（从本地路径）
             logger.info(f"从本地加载模型: {settings.HF_IMAGE_MODEL}")
             
-            # 使用AutoModel方式加载,确保使用本地文件
+            dtype = torch.float16 if use_fp16 else torch.float32
             model = AutoModelForImageClassification.from_pretrained(
                 settings.HF_IMAGE_MODEL,
-                local_files_only=True
+                local_files_only=True,
+                torch_dtype=dtype,
             )
             processor = AutoImageProcessor.from_pretrained(
                 settings.HF_IMAGE_MODEL,
@@ -44,7 +72,7 @@ class ImageRecognitionTool:
                 feature_extractor=processor,
                 device=self.device
             )
-            logger.info(f"成功加载本地模型")
+            logger.info("模型加载成功 (FP16=%s)", use_fp16)
         except Exception as e:
             logger.error(f"模型加载失败: {e}")
             raise
@@ -90,15 +118,19 @@ class ImageRecognitionTool:
             # 执行识别
             results = self.classifier(processed_image, top_k=top_k)
             
-            # 格式化结果
-            formatted_results = [
-                {
-                    "label": result['label'],
-                    "confidence": float(result['score']),
-                    "confidence_percent": f"{result['score'] * 100:.2f}%"
-                }
-                for result in results
-            ]
+            formatted_results = []
+            for result in results:
+                score = float(result['score'])
+                if score < CONFIDENCE_THRESHOLD:
+                    continue
+                en_label = result['label']
+                cn_label = FOOD_EN_TO_CN.get(en_label.lower().replace("_", " "), "")
+                formatted_results.append({
+                    "label": en_label,
+                    "label_cn": cn_label,
+                    "confidence": score,
+                    "confidence_percent": f"{score * 100:.2f}%"
+                })
             
             logger.info(f"识别成功，Top-1: {formatted_results[0]['label']} ({formatted_results[0]['confidence_percent']})")
             
@@ -119,8 +151,15 @@ class ImageRecognitionTool:
             是否为食物/饮品
         """
         food_keywords = [
-            'food', 'drink', 'beverage', 'tea', 'coffee', 'juice', 
-            'milk', 'water', 'cola', 'soda', 'bottle', 'cup', 'glass'
+            'food', 'drink', 'beverage', 'tea', 'coffee', 'juice',
+            'milk', 'water', 'cola', 'soda', 'bottle', 'cup', 'glass',
+            'pizza', 'burger', 'hotdog', 'bread', 'cake', 'ice cream',
+            'banana', 'apple', 'orange', 'strawberry', 'lemon', 'fruit',
+            'broccoli', 'mushroom', 'corn', 'pepper', 'cucumber',
+            'meat', 'egg', 'cheese', 'soup', 'salad', 'rice', 'noodle',
+            'chocolate', 'cookie', 'pretzel', 'bagel', 'burrito',
+            'espresso', 'carbonara', 'guacamole', 'consomme',
+            'plate', 'bowl', 'tray', 'restaurant', 'bakery', 'grocery',
         ]
         
         label_lower = label.lower()

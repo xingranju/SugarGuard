@@ -126,7 +126,8 @@ private suspend fun buildAnalysisLongScreenshot(
     val firstStrip = pixelCopyWindowRect(window, scrollRect)
     if (firstStrip != null) strips.add(firstStrip)
 
-    var targetScroll = viewportH
+    val overlap = 40
+    var targetScroll = viewportH - overlap
     while (targetScroll <= maxScroll) {
         scrollStateSnapTo(scrollState, targetScroll)
         delay(200)
@@ -145,7 +146,7 @@ private suspend fun buildAnalysisLongScreenshot(
             strips.add(strip)
         }
         prevActualScroll = actualScroll
-        targetScroll += viewportH
+        targetScroll += viewportH - overlap
     }
 
     if (prevActualScroll < maxScroll) {
@@ -305,7 +306,7 @@ fun AnalysisScreen(
         scope.launch(Dispatchers.Main) {
             try {
                 hideFabForShare = true
-                delay(150)
+                delay(300)
                 val window = act.window
                 val hdr = headerWindowRect
                 val scr = scrollWindowRect
@@ -371,7 +372,7 @@ fun AnalysisScreen(
         scope.launch(Dispatchers.Main) {
             try {
                 hideFabForShare = true
-                delay(150)
+                delay(300)
                 val window = act.window
                 val hdr = headerWindowRect
                 val scr = scrollWindowRect

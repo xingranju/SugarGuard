@@ -74,7 +74,7 @@ public class MealViewModel extends ViewModel {
             Call<ApiResponse<Map<String, Object>>> call = mealApiService.addMealWithImage(
                 userIdPart, foodNamePart, sugarContentPart, caloriesPart,
                 proteinPart, fatPart, carbPart, portionPart,
-                notesPart, mealTypePart, imagePart
+                notesPart, mealTypePart, null, imagePart
             );
             
             call.enqueue(new Callback<ApiResponse<Map<String, Object>>>() {

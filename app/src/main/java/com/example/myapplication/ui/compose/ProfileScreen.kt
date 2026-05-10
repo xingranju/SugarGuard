@@ -41,8 +41,9 @@ fun ProfileScreen(onBack: () -> Unit) {
     var daysCount by remember { mutableIntStateOf(0) }
     var avatarUrl by remember { mutableStateOf<String?>(null) }
     var displayName by remember { mutableStateOf(username) }
+    var refreshKey by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(userId) {
+    LaunchedEffect(userId, refreshKey) {
         val userInfoApi = RetrofitClient.getUserInfoApiService()
         val user: UserInfo? = withContext(Dispatchers.IO) {
             try {
@@ -91,7 +92,7 @@ fun ProfileScreen(onBack: () -> Unit) {
     var showReport by remember { mutableStateOf(false) }
     var showHistoryScan by remember { mutableStateOf(false) }
 
-    if (showUserEdit) { LocalUserEditScreen(onBack = { showUserEdit = false }); return }
+    if (showUserEdit) { LocalUserEditScreen(onBack = { showUserEdit = false; refreshKey++ }); return }
     if (showHealthProfile) { HealthProfileScreen(onBack = { showHealthProfile = false }); return }
     if (showDailyHealthRecord) { DailyHealthRecordScreen(onBack = { showDailyHealthRecord = false }); return }
     if (showDrinkPreference) { DrinkPreferenceScreen(onBack = { showDrinkPreference = false }); return }
@@ -127,7 +128,11 @@ fun ProfileScreen(onBack: () -> Unit) {
             ) {
                 if (!avatarUrl.isNullOrBlank()) {
                     coil.compose.AsyncImage(
-                        model = avatarUrl,
+                        model = coil.request.ImageRequest.Builder(LocalContext.current)
+                            .data(avatarUrl)
+                            .memoryCacheKey("$avatarUrl?v=$refreshKey")
+                            .diskCachePolicy(coil.request.CachePolicy.WRITE_ONLY)
+                            .build(),
                         contentDescription = "头像",
                         modifier = Modifier
                             .size(64.dp)

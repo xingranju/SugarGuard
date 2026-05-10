@@ -11,6 +11,7 @@ import os
 import pickle
 import logging
 
+import json
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -83,9 +84,37 @@ class HealthKnowledgeRAG:
             self._create_initial_vectorstore()
     
     
+    def _load_extended_knowledge(self) -> list:
+        """从JSON文件加载扩展知识数据"""
+        json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "extended_knowledge.json")
+        try:
+            if os.path.exists(json_path):
+                with open(json_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                logger.info(f"从扩展知识文件加载了 {len(data)} 条知识")
+                return data
+        except Exception as e:
+            logger.warning(f"加载扩展知识文件失败: {e}")
+        return []
+
+    def _load_knowledge_from_db(self) -> list:
+        """从MySQL health_knowledge表加载知识数据"""
+        try:
+            from sqlalchemy import create_engine, text
+            engine = create_engine(settings.database_url)
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT title, content, category, tags FROM health_knowledge"))
+                rows = result.fetchall()
+                logger.info(f"从数据库加载了 {len(rows)} 条健康知识")
+                return [{"title": r[0], "content": r[1], "category": r[2], "tags": (r[3] or "").split(",")} for r in rows]
+        except Exception as e:
+            logger.warning(f"从数据库加载知识失败: {e}, 使用内置知识库")
+            return []
+
     def _create_initial_vectorstore(self):
         """创建初始向量数据库并添加基础健康知识"""
-        # 基础健康知识
+        db_knowledge = self._load_knowledge_from_db()
+
         initial_knowledge = [
             {
                 "title": "糖分摄入与健康",
@@ -252,9 +281,12 @@ BMI分类标准(中国):
             }
         ]
         
-        # 转换为Document对象
+        extended = self._load_extended_knowledge()
+        all_knowledge = initial_knowledge + db_knowledge + extended
+        logger.info(f"知识库总计: 内置{len(initial_knowledge)} + DB{len(db_knowledge)} + 扩展{len(extended)} = {len(all_knowledge)} 篇")
+
         documents = []
-        for item in initial_knowledge:
+        for item in all_knowledge:
             # 文本分块
             chunks = self.text_splitter.split_text(item["content"])
             for i, chunk in enumerate(chunks):

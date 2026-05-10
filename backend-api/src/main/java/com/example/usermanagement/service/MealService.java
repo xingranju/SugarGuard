@@ -52,17 +52,49 @@ public class MealService {
     public synchronized MealRecord addMealWithImage(Long userId, String foodName, Float sugarContent, 
                                        Float calories, Float protein, Float fat, 
                                        Float carbohydrate, Float portionSize, 
-                                       String notes, String mealType, MultipartFile image) {
+                                       String notes, String mealType, String aiAdvice, MultipartFile image) {
         
         logger.info("添加餐食记录：用户{}, 食物{}, 餐次{}", userId, foodName, mealType);
         
         LocalDateTime twoMinutesAgo = LocalDateTime.now().minusMinutes(2);
         long dupeCount = mealRecordRepository.countRecentDuplicates(userId, foodName, LocalDate.now(), twoMinutesAgo);
         if (dupeCount > 0) {
-            logger.warn("服务端去重拦截(带图片)：用户{} 食物「{}」2分钟内已有{}条记录", userId, foodName, dupeCount);
-            return mealRecordRepository.findByUserIdAndMealDateOrderByMealTimeDesc(userId, LocalDate.now())
+            // 去重分支：命中 2 分钟内同名食物时，不新建记录，但若老记录有空字段（图片/备注/AI 建议），用本次请求补写，
+            // 避免"第一次无图添加 + 第二次带图补写"场景下新数据被整体丢弃。
+            MealRecord existing = mealRecordRepository.findByUserIdAndMealDateOrderByMealTimeDesc(userId, LocalDate.now())
                 .stream().filter(m -> m.getFoodName().equals(foodName)).findFirst()
                 .orElseThrow(() -> new RuntimeException("去重查询异常"));
+            boolean dirty = false;
+            if ((existing.getImagePath() == null || existing.getImagePath().isEmpty())
+                    && image != null && !image.isEmpty()) {
+                try {
+                    String imagePath = saveImage(image, userId);
+                    existing.setImagePath(imagePath);
+                    dirty = true;
+                    logger.info("去重补写：老记录 {} image_path={}", existing.getMealId(), imagePath);
+                } catch (IOException e) {
+                    logger.error("去重补写图片失败", e);
+                }
+            }
+            if ((existing.getNotes() == null || existing.getNotes().isEmpty())
+                    && notes != null && !notes.isEmpty()) {
+                existing.setNotes(notes);
+                dirty = true;
+                logger.info("去重补写：老记录 {} notes", existing.getMealId());
+            }
+            if ((existing.getAiAdvice() == null || existing.getAiAdvice().isEmpty())
+                    && aiAdvice != null && !aiAdvice.isEmpty()) {
+                existing.setAiAdvice(aiAdvice);
+                dirty = true;
+                logger.info("去重补写：老记录 {} ai_advice", existing.getMealId());
+            }
+            if (dirty) {
+                existing = mealRecordRepository.save(existing);
+                logger.info("去重命中但已补写老记录：ID={}", existing.getMealId());
+            } else {
+                logger.warn("服务端去重拦截(带图片)：用户{} 食物「{}」2分钟内已有{}条记录，新请求无可补写字段", userId, foodName, dupeCount);
+            }
+            return existing;
         }
         
         // 创建餐食记录
@@ -73,6 +105,7 @@ public class MealService {
         meal.setCalories(calories);
         meal.setPortionSize(portionSize);
         meal.setNotes(notes);
+        meal.setAiAdvice(aiAdvice);
         meal.setMealDate(LocalDate.now());  
         meal.setMealTime(LocalDateTime.now());
         meal.setMealType(MealRecord.MealType.valueOf(mealType.toLowerCase()));
@@ -120,17 +153,35 @@ public class MealService {
     public synchronized MealRecord addMeal(Long userId, String foodName, Float sugarContent, 
                              Float calories, Float protein, Float fat, 
                              Float carbohydrate, Float portionSize, 
-                             String notes, String mealType) {
+                             String notes, String mealType, String aiAdvice) {
         
         logger.info("添加餐食记录（无图片）：用户{}, 食物{}", userId, foodName);
         
         LocalDateTime twoMinutesAgo = LocalDateTime.now().minusMinutes(2);
         long dupeCount = mealRecordRepository.countRecentDuplicates(userId, foodName, LocalDate.now(), twoMinutesAgo);
         if (dupeCount > 0) {
-            logger.warn("服务端去重拦截：用户{} 食物「{}」2分钟内已有{}条记录", userId, foodName, dupeCount);
-            return mealRecordRepository.findByUserIdAndMealDateOrderByMealTimeDesc(userId, LocalDate.now())
+            // 去重分支：同上，若老记录 notes / ai_advice 为空则用本次请求补写
+            MealRecord existing = mealRecordRepository.findByUserIdAndMealDateOrderByMealTimeDesc(userId, LocalDate.now())
                 .stream().filter(m -> m.getFoodName().equals(foodName)).findFirst()
                 .orElseThrow(() -> new RuntimeException("去重查询异常"));
+            boolean dirty = false;
+            if ((existing.getNotes() == null || existing.getNotes().isEmpty())
+                    && notes != null && !notes.isEmpty()) {
+                existing.setNotes(notes);
+                dirty = true;
+            }
+            if ((existing.getAiAdvice() == null || existing.getAiAdvice().isEmpty())
+                    && aiAdvice != null && !aiAdvice.isEmpty()) {
+                existing.setAiAdvice(aiAdvice);
+                dirty = true;
+            }
+            if (dirty) {
+                existing = mealRecordRepository.save(existing);
+                logger.info("去重命中但已补写老记录(无图)：ID={}", existing.getMealId());
+            } else {
+                logger.warn("服务端去重拦截：用户{} 食物「{}」2分钟内已有{}条记录，新请求无可补写字段", userId, foodName, dupeCount);
+            }
+            return existing;
         }
         
         MealRecord meal = new MealRecord();
@@ -140,6 +191,7 @@ public class MealService {
         meal.setCalories(calories);
         meal.setPortionSize(portionSize);
         meal.setNotes(notes);
+        meal.setAiAdvice(aiAdvice);
         meal.setMealDate(LocalDate.now());  
         meal.setMealTime(LocalDateTime.now());
         meal.setMealType(MealRecord.MealType.valueOf(mealType.toLowerCase()));
@@ -369,6 +421,7 @@ public class MealService {
         map.put("calories", meal.getCalories());
         map.put("portionSize", meal.getPortionSize());
         map.put("notes", meal.getNotes());
+        map.put("aiAdvice", meal.getAiAdvice());
         map.put("drinkId", meal.getDrinkId());
         
         // 智能选择图片URL

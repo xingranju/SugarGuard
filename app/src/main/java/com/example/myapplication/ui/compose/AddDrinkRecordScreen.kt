@@ -294,12 +294,15 @@ fun DrinkItemCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val imageData = drink.imageUrl ?: "https://images.unsplash.com/photo-1558857563-b371033873b8?w=80&h=80&fit=crop"
+            val imageData = drink.imageUrl?.takeIf { !it.contains("source.unsplash.com") }
+                ?: "https://picsum.photos/seed/${drink.drinkName.hashCode().toUInt()}/80/80"
             
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(imageData)
                     .crossfade(true)
+                    .error(android.R.drawable.ic_menu_gallery)
+                    .fallback(android.R.drawable.ic_menu_gallery)
                     .build(),
                 contentDescription = drink.drinkName,
                 modifier = Modifier

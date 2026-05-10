@@ -45,10 +45,13 @@ public class RetrofitClient {
     
     private RetrofitClient() {
         // 创建OkHttpClient
+        // readTimeout 设为 120 秒：AI 智能对话（DeepSeek 长回答）生成常需 20-40 秒，
+        // 历史值 30 秒会触发 SocketTimeoutException 导致客户端拿不到响应，
+        // 但后端已把对话落到 conversation_history（见 2026-04-22 Bug #3 修复记录）。
         OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS);
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS);
         
         // 添加JWT拦截器
         httpClient.addInterceptor(new Interceptor() {

@@ -135,6 +135,15 @@ public class AIController {
 
             Map<String, Object> result = aiServiceProxy.chat(userId, chatRequest.getMessage(), saveHistory);
 
+            // Python AI 服务返回 {"success": false, ...} 时视为调用失败，透传给前端
+            Object pySuccess = result != null ? result.get("success") : null;
+            if (pySuccess instanceof Boolean && !((Boolean) pySuccess)) {
+                String errMsg = result.get("error") != null ? String.valueOf(result.get("error")) : "AI 服务调用失败";
+                logger.warn("AI chat 下游失败, userId={}, error={}", userId, errMsg);
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                        .body(ApiResponse.error("AI 服务不可用: " + errMsg));
+            }
+
             return ResponseEntity.ok(ApiResponse.success(result));
 
         } catch (Exception e) {

@@ -2,7 +2,7 @@ package com.example.myapplication.ui.compose
 
 import android.content.Context
 import android.net.Uri
-import android.widget.Toast
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +53,8 @@ fun LocalUserEditScreen(onBack: () -> Unit) {
     var avatarUrl by remember { mutableStateOf("") }
     var localAvatarUri by remember { mutableStateOf<Uri?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var saveResultMsg by remember { mutableStateOf<String?>(null) }
+    var saveSuccess by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -63,7 +67,8 @@ fun LocalUserEditScreen(onBack: () -> Unit) {
                 avatarUrl = file.absolutePath
                 localAvatarUri = Uri.fromFile(file)
             } catch (_: Exception) {
-                Toast.makeText(context, "头像设置失败", Toast.LENGTH_SHORT).show()
+                saveSuccess = false
+                saveResultMsg = "头像设置失败"
             }
         }
     }
@@ -132,17 +137,42 @@ fun LocalUserEditScreen(onBack: () -> Unit) {
                                 if (result.isSuccessful && result.body()?.isSuccess == true) {
                                     val updatedName = result.body()?.data?.username ?: nickname
                                     prefs.edit().putString("username", updatedName).apply()
-                                    Toast.makeText(context, "资料已更新", Toast.LENGTH_SHORT).show()
+                                    saveSuccess = true
+                                    saveResultMsg = "资料已更新"
+                                    kotlinx.coroutines.delay(2000)
+                                    saveResultMsg = null
                                 } else {
-                                    Toast.makeText(context, "保存失败: ${result.body()?.message ?: "未知错误"}", Toast.LENGTH_SHORT).show()
+                                    saveSuccess = false
+                                    saveResultMsg = "保存失败: ${result.body()?.message ?: "未知错误"}"
                                 }
                             } catch (_: Exception) {
-                                Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+                                saveSuccess = false
+                                saveResultMsg = "保存失败"
                             }
                         }
                     }
                 ) {
                     Text("保存", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MintGreen)
+                }
+            }
+        }
+
+        saveResultMsg?.let { msg ->
+            val bgColor = if (saveSuccess) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+            val txtColor = if (saveSuccess) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+            val icon = if (saveSuccess) Icons.Default.CheckCircle else Icons.Default.Warning
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                color = bgColor,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(icon, null, tint = txtColor)
+                    Text(msg, color = txtColor, fontSize = 14.sp)
                 }
             }
         }

@@ -52,6 +52,9 @@ data class MealRecord(
     @SerializedName("notes")
     val notes: String? = null, // 备注
     
+    @SerializedName("ai_advice")
+    val aiAdvice: String? = null, // AI 建议（拍照识别时由 AI 服务生成）
+    
     @SerializedName("created_at")
     val createdAt: String? = null
 )
@@ -117,7 +120,10 @@ data class AddMealRequest(
     val notes: String? = null,
     
     @SerializedName("image_path")
-    val imagePath: String? = null
+    val imagePath: String? = null,
+    
+    @SerializedName("ai_advice")
+    val aiAdvice: String? = null
 )
 
 /**
