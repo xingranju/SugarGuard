@@ -35,7 +35,8 @@ import com.example.myapplication.viewmodel.DrinkViewModel
 @Composable
 fun AddDrinkRecordScreen(
     onNavigateBack: () -> Unit,
-    viewModel: DrinkViewModel = viewModel()
+    viewModel: DrinkViewModel = viewModel(),
+    selectedDate: java.time.LocalDate = java.time.LocalDate.now()
 ) {
     val context = LocalContext.current
     val userId = UserManager.getInstance(context).getCurrentUserId()

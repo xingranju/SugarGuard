@@ -79,6 +79,7 @@ ai-service/data/faiss_index/
 
 # === Uploads ===
 backend-api/uploads/
+/uploads/
 
 # === Legacy Node.js directories in backend-api ===
 backend-api/controllers/

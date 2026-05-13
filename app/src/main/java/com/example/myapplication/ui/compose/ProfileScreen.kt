@@ -90,6 +90,7 @@ fun ProfileScreen(onBack: () -> Unit) {
     var showFeedback by remember { mutableStateOf(false) }
     var showAchievements by remember { mutableStateOf(false) }
     var showReport by remember { mutableStateOf(false) }
+    var showNutritionCoach by remember { mutableStateOf(false) }
     var showHistoryScan by remember { mutableStateOf(false) }
 
     if (showUserEdit) { LocalUserEditScreen(onBack = { showUserEdit = false; refreshKey++ }); return }
@@ -102,6 +103,7 @@ fun ProfileScreen(onBack: () -> Unit) {
     if (showFeedback) { FeedbackScreen(onBack = { showFeedback = false }); return }
     if (showAchievements) { AchievementsScreen(onBack = { showAchievements = false }); return }
     if (showReport) { ReportScreen(onBack = { showReport = false }); return }
+    if (showNutritionCoach) { NutritionCoachScreen(onBack = { showNutritionCoach = false }); return }
     if (showHistoryScan) { HistoryScanScreen(onBack = { showHistoryScan = false }); return }
 
     Column(
@@ -195,6 +197,7 @@ fun ProfileScreen(onBack: () -> Unit) {
         ProfileMenuGroup(
             modifier = Modifier.padding(horizontal = 24.dp),
             items = listOf(
+                ProfileItem(Icons.Default.AutoAwesome, "AI 营养教练", Color(0xFFE0F2F1), Color(0xFF26A69A)) { showNutritionCoach = true },
                 ProfileItem(Icons.Default.Assessment, "报告历史", Color(0xFFE8F5E9), Color(0xFF66BB6A)) { showReport = true },
                 ProfileItem(Icons.Default.History, "历史扫描记录", Color(0xFFFCE4EC), Color(0xFFEC407A)) { showHistoryScan = true },
             )

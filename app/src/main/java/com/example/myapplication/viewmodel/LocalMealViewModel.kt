@@ -153,7 +153,8 @@ class LocalMealViewModel : ViewModel() {
         userId: Int, foodName: String, sugarContent: Double, calories: Double,
         protein: Double?, fat: Double?, carbohydrate: Double?,
         portionSize: String?, notes: String?, mealType: String, imageUrl: String?,
-        aiAdvice: String? = null
+        aiAdvice: String? = null,
+        mealDate: LocalDate? = null
     ) {
         val currentMs = System.currentTimeMillis()
         recentAddedKeys.entries.removeIf { currentMs - it.value > 120_000 }
@@ -201,12 +202,12 @@ class LocalMealViewModel : ViewModel() {
         }
 
         _isLoading.value = true
-        val mealDate = _selectedDate.value ?: LocalDate.now()
+        val resolvedMealDate = mealDate ?: _selectedDate.value ?: LocalDate.now()
         val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
 
         val request = AddMealRequest(
             userId = userId,
-            mealDate = mealDate.toString(),
+            mealDate = resolvedMealDate.toString(),
             mealTime = time,
             mealType = mealType,
             foodName = foodName,

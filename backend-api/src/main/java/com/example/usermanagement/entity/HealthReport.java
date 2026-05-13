@@ -56,6 +56,9 @@ public class HealthReport {
     @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
+    @Column(name = "ai_report", columnDefinition = "TEXT")
+    private String aiReport;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -110,6 +113,9 @@ public class HealthReport {
 
     public String getSummary() { return summary; }
     public void setSummary(String summary) { this.summary = summary; }
+
+    public String getAiReport() { return aiReport; }
+    public void setAiReport(String aiReport) { this.aiReport = aiReport; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
@@ -34,6 +35,12 @@ public class ReportService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AIServiceProxy aiServiceProxy;
+
+    @Autowired
+    private DailyHealthRecordRepository healthRecordRepository;
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void generateDailyReports() {
@@ -205,6 +212,169 @@ public class ReportService {
         if (overDays <= totalDays / 4) return "整体不错，偶尔超标";
         if (avgSugar > sugarLimit * 1.5f) return "糖分摄入偏高，需要注意控制";
         return "需要注意控糖，加油！";
+    }
+
+    /**
+     * 为指定用户生成 AI 营养教练周报或月报
+     * @param periodType "weekly" 或 "monthly"
+     */
+    public HealthReport generateAiNutritionReport(Long userId, String periodType) {
+        float sugarLimit = profileRepository.findByUserId(userId)
+                .map(UserHealthProfile::getSugarLimit).orElse(25f);
+
+        LocalDate today = LocalDate.now();
+        LocalDate startDate, endDate;
+        if ("monthly".equals(periodType)) {
+            startDate = today.withDayOfMonth(1);
+            endDate = today;
+        } else {
+            startDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            endDate = today;
+        }
+
+        List<MealRecord> meals = mealRecordRepository
+                .findByUserIdAndMealDateBetweenOrderByMealTimeDesc(userId, startDate, endDate);
+
+        Map<LocalDate, Float> dailySugar = new LinkedHashMap<>();
+        Map<LocalDate, Float> dailyCalories = new LinkedHashMap<>();
+        Map<LocalDate, List<String>> dailyFoods = new LinkedHashMap<>();
+        for (MealRecord m : meals) {
+            LocalDate d = m.getMealDate();
+            dailySugar.merge(d, m.getSugarContent() != null ? m.getSugarContent() : 0f, Float::sum);
+            dailyCalories.merge(d, m.getCalories() != null ? m.getCalories() : 0f, Float::sum);
+            dailyFoods.computeIfAbsent(d, k -> new ArrayList<>());
+            if (m.getFoodName() != null) dailyFoods.get(d).add(m.getFoodName());
+        }
+
+        int recordDays = dailySugar.size();
+        float totalSugar = 0f, totalCalories = 0f;
+        int overDays = 0;
+        float maxSugarDay = 0f;
+        LocalDate worstDay = today;
+        for (Map.Entry<LocalDate, Float> e : dailySugar.entrySet()) {
+            float daySugar = e.getValue();
+            totalSugar += daySugar;
+            totalCalories += dailyCalories.getOrDefault(e.getKey(), 0f);
+            if (daySugar > sugarLimit) overDays++;
+            if (daySugar > maxSugarDay) { maxSugarDay = daySugar; worstDay = e.getKey(); }
+        }
+
+        int totalDays = (int) (endDate.toEpochDay() - startDate.toEpochDay()) + 1;
+        float avgSugar = recordDays > 0 ? totalSugar / recordDays : 0f;
+        float avgCalories = recordDays > 0 ? totalCalories / recordDays : 0f;
+        int score = computeScore(overDays, totalDays);
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("M月d日");
+        StringBuilder dailyDetail = new StringBuilder();
+        for (Map.Entry<LocalDate, Float> e : dailySugar.entrySet()) {
+            LocalDate d = e.getKey();
+            float sugar = e.getValue();
+            float cal = dailyCalories.getOrDefault(d, 0f);
+            List<String> foods = dailyFoods.getOrDefault(d, Collections.emptyList());
+            String topFoods = foods.size() > 5 ? String.join("、", foods.subList(0, 5)) + "等" : String.join("、", foods);
+            dailyDetail.append(String.format("%s: 糖%.1fg/热量%.0fkcal%s, 食物: %s\n",
+                    d.format(fmt), sugar, cal, sugar > sugarLimit ? "(超标)" : "(达标)", topFoods));
+        }
+
+        String periodLabel = "monthly".equals(periodType) ? "本月" : "本周";
+        String prompt = String.format(
+            "你是「糖知」APP的AI营养教练。请为用户生成一份专业的%s健康报告。\n\n" +
+            "用户数据：\n" +
+            "- 期间：%s 至 %s\n" +
+            "- 每日糖分目标：%.0fg\n" +
+            "- 日均糖分：%.1fg，日均热量：%.0fkcal\n" +
+            "- 记录天数：%d天，超标天数：%d天\n" +
+            "- 最高糖分日：%s（%.1fg）\n" +
+            "- 总糖分：%.1fg，总热量：%.0fkcal\n" +
+            "- 控糖评分：%d/100\n\n" +
+            "每日明细：\n%s\n" +
+            "请按以下格式生成报告（纯文本，不要markdown）：\n\n" +
+            "【%s营养报告】\n\n" +
+            "一、总体评价\n用2-3句话评价整体表现。\n\n" +
+            "二、数据亮点\n列出3个关键数据发现。\n\n" +
+            "三、饮食分析\n分析饮食结构和糖分来源。\n\n" +
+            "四、改善建议\n给出4条具体可执行的控糖建议。\n\n" +
+            "五、下%s目标\n设定2个量化目标。",
+            periodLabel,
+            startDate.format(fmt), endDate.format(fmt),
+            sugarLimit, avgSugar, avgCalories,
+            recordDays, overDays,
+            worstDay.format(fmt), maxSugarDay,
+            totalSugar, totalCalories, score,
+            dailyDetail.toString(),
+            periodLabel,
+            "monthly".equals(periodType) ? "月" : "周"
+        );
+
+        String aiReport;
+        try {
+            Map<String, Object> aiResult = aiServiceProxy.chat(userId, prompt, false);
+            Object response = aiResult.get("response");
+            if (response != null) {
+                aiReport = response.toString();
+            } else {
+                Object data = aiResult.get("data");
+                if (data instanceof Map) {
+                    aiReport = (String) ((Map<?, ?>) data).get("response");
+                } else {
+                    aiReport = data != null ? data.toString() : null;
+                }
+            }
+            if (aiReport == null || aiReport.trim().isEmpty()) {
+                aiReport = generateFallbackReport(periodLabel, avgSugar, sugarLimit, overDays, totalDays, score);
+            }
+        } catch (Exception e) {
+            logger.error("AI报告生成失败: {}", e.getMessage());
+            aiReport = generateFallbackReport(periodLabel, avgSugar, sugarLimit, overDays, totalDays, score);
+        }
+
+        HealthReport report = new HealthReport();
+        report.setUserId(userId);
+        report.setPeriodType(periodType);
+        report.setStartDate(startDate);
+        report.setEndDate(endDate);
+        report.setAvgSugar(avgSugar);
+        report.setAvgCalories(avgCalories);
+        report.setTotalSugar(totalSugar);
+        report.setTotalCalories(totalCalories);
+        report.setOverDays(overDays);
+        report.setTotalDays(totalDays);
+        report.setRecordDays(recordDays);
+        report.setSugarLimit(sugarLimit);
+        report.setScore(score);
+        report.setSummary(generateSummary(overDays, totalDays, avgSugar, sugarLimit));
+        report.setAiReport(aiReport);
+
+        Optional<HealthReport> existing = reportRepository
+                .findByUserIdAndPeriodTypeAndStartDate(userId, periodType, startDate);
+        if (existing.isPresent()) {
+            HealthReport old = existing.get();
+            old.setAvgSugar(avgSugar);
+            old.setAvgCalories(avgCalories);
+            old.setTotalSugar(totalSugar);
+            old.setTotalCalories(totalCalories);
+            old.setOverDays(overDays);
+            old.setRecordDays(recordDays);
+            old.setScore(score);
+            old.setSummary(report.getSummary());
+            old.setAiReport(aiReport);
+            return reportRepository.save(old);
+        }
+        return reportRepository.save(report);
+    }
+
+    private String generateFallbackReport(String period, float avgSugar, float limit,
+                                           int overDays, int totalDays, int score) {
+        return String.format(
+            "【%s营养报告】\n\n" +
+            "一、总体评价\n日均糖分%.1fg，目标%.0fg，控糖评分%d分。%s\n\n" +
+            "二、数据亮点\n1. 记录了%d天的饮食数据\n2. 超标%d天\n3. 评分%d/100\n\n" +
+            "三、改善建议\n1. 选择低糖饮品替代含糖饮料\n2. 多吃蔬菜和全谷物\n3. 控制甜品摄入频率\n4. 养成看营养标签的习惯\n\n" +
+            "（AI详细分析暂时不可用，以上为基础统计报告）",
+            period, avgSugar, limit, score,
+            overDays == 0 ? "表现优秀！" : overDays <= totalDays / 4 ? "整体不错，继续保持。" : "需要加强控糖意识。",
+            totalDays, overDays, score
+        );
     }
 
     public List<HealthReport> getReports(Long userId, String periodType, LocalDate from, LocalDate to) {

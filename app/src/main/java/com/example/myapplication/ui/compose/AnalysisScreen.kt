@@ -45,6 +45,7 @@ import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.example.myapplication.api.RetrofitClient
 import com.example.myapplication.model.ChatRequest
+import com.example.myapplication.util.ReportPdfGenerator
 import com.example.myapplication.model.ChatResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -739,28 +740,92 @@ fun AnalysisScreen(
                     .padding(horizontal = 24.dp)
             ) {
                 val openAdjust = { sliderValue = sugarTarget; showSugarDialog = true }
+                val periodLabels = listOf("日", "周", "月", "半年")
+                val currentPeriodLabel = periodLabels.getOrElse(selectedPeriod) { "日" }
+                val exportPdf: () -> Unit = {
+                    val avgSugar = when (selectedPeriod) {
+                        0 -> todaySugar.toFloat()
+                        1 -> weekAvgInt.toFloat()
+                        2 -> monthAvgInt.toFloat()
+                        3 -> halfYearAvgInt.toFloat()
+                        else -> 0f
+                    }
+                    val overD = when (selectedPeriod) {
+                        1 -> weekOverDays
+                        2 -> monthOverDays
+                        3 -> halfYearOverDays
+                        else -> if (todaySugar > sugarTarget) 1 else 0
+                    }
+                    val totalD = when (selectedPeriod) {
+                        0 -> 1; 1 -> 7; 2 -> 30; 3 -> 180; else -> 1
+                    }
+                    val aiText = when (selectedPeriod) {
+                        0 -> dayAiConclusion
+                        1 -> weekAiConclusion
+                        2 -> monthAiConclusion
+                        3 -> halfYearAiConclusion
+                        else -> ""
+                    }
+                    val tips = when (selectedPeriod) {
+                        0 -> dayAiTips
+                        1 -> weekAiTips
+                        2 -> monthAiTips
+                        3 -> halfYearAiTips
+                        else -> emptyList()
+                    }
+                    val fullAi = buildString {
+                        if (aiText.isNotBlank()) appendLine(aiText)
+                        if (tips.isNotEmpty()) {
+                            appendLine()
+                            tips.forEachIndexed { i, t -> appendLine("${i + 1}. $t") }
+                        }
+                    }
+                    val score = if (totalD > 0) ((1f - overD.toFloat() / totalD) * 100).toInt() else 100
+                    val today = java.time.LocalDate.now()
+                    val dateRange = when (selectedPeriod) {
+                        0 -> today.toString()
+                        1 -> "${today.minusDays(6)} ~ $today"
+                        2 -> "${today.minusDays(29)} ~ $today"
+                        3 -> "${today.minusDays(179)} ~ $today"
+                        else -> today.toString()
+                    }
+                    val pdfData = ReportPdfGenerator.ReportData(
+                        title = "糖知控糖分析 · 本${currentPeriodLabel}报告",
+                        periodLabel = currentPeriodLabel,
+                        dateRange = dateRange,
+                        score = score,
+                        avgSugar = avgSugar,
+                        avgCalories = 0f,
+                        sugarLimit = sugarTarget,
+                        overDays = overD,
+                        totalDays = totalD,
+                        recordDays = totalD,
+                        aiReport = fullAi.ifBlank { null }
+                    )
+                    ReportPdfGenerator.generateAndShare(context, pdfData)
+                }
                 when (selectedPeriod) {
                     0 -> DayView(
                         todaySugar, sugarTarget, breakfastSugar, lunchSugar, dinnerSugar, snackSugar,
-                        dayAiAdvice, dayAiConclusion, dayAiTips, openAdjust, shareReport, saveReport
+                        dayAiAdvice, dayAiConclusion, dayAiTips, openAdjust, shareReport, saveReport, exportPdf
                     )
                     1 -> WeekView(
                         thisWeekData, sugarTarget, weekOverDays, weekAiAdvice,
                         weekAvgInt, lastWeekAvgInt,
                         weekAiConclusion, weekAiTips,
-                        openAdjust, shareReport, saveReport
+                        openAdjust, shareReport, saveReport, exportPdf
                     )
                     2 -> MonthView(
                         monthWeeklyAvgs, sugarTarget, monthOverDays, monthAiAdvice,
                         monthAvgInt, lastMonthAvgInt,
                         monthAiConclusion, monthAiTips,
-                        openAdjust, shareReport, saveReport
+                        openAdjust, shareReport, saveReport, exportPdf
                     )
                     3 -> HalfYearView(
                         halfYearMonthlyAvgs, halfYearOverDays, halfYearAiAdvice,
                         halfYearAvgInt, halfYearChangePercent,
                         halfYearAiConclusion, halfYearAiTips,
-                        openAdjust, shareReport, saveReport
+                        openAdjust, shareReport, saveReport, exportPdf
                     )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -821,24 +886,32 @@ private fun EncouragementBanner(icon: String, title: String, subtitle: String) {
 }
 
 @Composable
-private fun ActionButtons(onAdjust: () -> Unit, onShareReport: () -> Unit, onSaveReport: () -> Unit = {}) {
+private fun ActionButtons(onAdjust: () -> Unit, onShareReport: () -> Unit, onSaveReport: () -> Unit = {}, onExportPdf: () -> Unit = {}) {
     Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = Color.White, shadowElevation = 1.dp) {
-        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onAdjust, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5), contentColor = Gray600),
-                elevation = ButtonDefaults.buttonElevation(0.dp)) { Text("调整目标", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onAdjust, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5), contentColor = Gray600),
+                    elevation = ButtonDefaults.buttonElevation(0.dp)) { Text("调整目标", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
+                Button(
+                    onClick = onSaveReport,
+                    modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A5F5)),
+                    elevation = ButtonDefaults.buttonElevation(4.dp)
+                ) { Text("保存报告", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
+                Button(
+                    onClick = onShareReport,
+                    modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
+                    elevation = ButtonDefaults.buttonElevation(4.dp)
+                ) { Text("分享报告", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
+            }
             Button(
-                onClick = onSaveReport,
-                modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A5F5)),
+                onClick = onExportPdf,
+                modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
                 elevation = ButtonDefaults.buttonElevation(4.dp)
-            ) { Text("保存报告", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
-            Button(
-                onClick = onShareReport,
-                modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
-                elevation = ButtonDefaults.buttonElevation(4.dp)
-            ) { Text("分享报告", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
+            ) { Text("导出 PDF 报告", fontSize = 11.sp, fontWeight = FontWeight.Medium) }
         }
     }
 }
@@ -874,7 +947,8 @@ private fun DayView(
     aiConclusion: String, aiTips: List<String>,
     onAdjust: () -> Unit,
     onShareReport: () -> Unit,
-    onSaveReport: () -> Unit = {}
+    onSaveReport: () -> Unit = {},
+    onExportPdf: () -> Unit = {}
 ) {
     val remaining = (sugarTarget - todaySugar.toFloat()).coerceAtLeast(0f)
     val progress = (todaySugar / sugarTarget).toFloat().coerceIn(0f, 1f)
@@ -943,7 +1017,7 @@ private fun DayView(
     }
     AiAnalysisConclusionCard(dayAiText, dayTips)
     Spacer(modifier = Modifier.height(16.dp))
-    ActionButtons(onAdjust, onShareReport, onSaveReport)
+    ActionButtons(onAdjust, onShareReport, onSaveReport, onExportPdf)
 }
 
 // ===== Unified Stats Card =====
@@ -1028,7 +1102,8 @@ private fun WeekView(
     aiConclusion: String, aiTips: List<String>,
     onAdjust: () -> Unit,
     onShareReport: () -> Unit,
-    onSaveReport: () -> Unit = {}
+    onSaveReport: () -> Unit = {},
+    onExportPdf: () -> Unit = {}
 ) {
     val weekDiff = weekAvgInt - lastWeekAvgInt
     val improved = weekDiff <= 0
@@ -1071,7 +1146,7 @@ private fun WeekView(
     }
     AiAnalysisConclusionCard(weekAiText, weekTips)
     Spacer(modifier = Modifier.height(16.dp))
-    ActionButtons(onAdjust, onShareReport, onSaveReport)
+    ActionButtons(onAdjust, onShareReport, onSaveReport, onExportPdf)
 }
 
 // ===== Month View =====
@@ -1085,7 +1160,8 @@ private fun MonthView(
     aiConclusion: String, aiTips: List<String>,
     onAdjust: () -> Unit,
     onShareReport: () -> Unit,
-    onSaveReport: () -> Unit = {}
+    onSaveReport: () -> Unit = {},
+    onExportPdf: () -> Unit = {}
 ) {
     val monthDiff = monthAvgInt - lastMonthAvgInt
     val improved = monthDiff <= 0
@@ -1127,7 +1203,7 @@ private fun MonthView(
     }
     AiAnalysisConclusionCard(monthAiText, monthTips)
     Spacer(modifier = Modifier.height(16.dp))
-    ActionButtons(onAdjust, onShareReport, onSaveReport)
+    ActionButtons(onAdjust, onShareReport, onSaveReport, onExportPdf)
 }
 
 // ===== Half Year View =====
@@ -1141,7 +1217,8 @@ private fun HalfYearView(
     aiConclusion: String, aiTips: List<String>,
     onAdjust: () -> Unit,
     onShareReport: () -> Unit,
-    onSaveReport: () -> Unit = {}
+    onSaveReport: () -> Unit = {},
+    onExportPdf: () -> Unit = {}
 ) {
     val now = LocalDate.now()
     val monthLabels = (5 downTo 0).map { now.minusMonths(it.toLong()).format(DateTimeFormatter.ofPattern("M月")) }
@@ -1201,7 +1278,7 @@ private fun HalfYearView(
     }
     AiAnalysisConclusionCard(halfAiText, halfYearTips)
     Spacer(modifier = Modifier.height(16.dp))
-    ActionButtons(onAdjust, onShareReport, onSaveReport)
+    ActionButtons(onAdjust, onShareReport, onSaveReport, onExportPdf)
 }
 
 // ===== Chart Components =====

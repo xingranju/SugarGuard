@@ -21,6 +21,7 @@ data class HealthReportDto(
     @SerializedName("sugar_limit") val sugarLimit: Float? = null,
     val score: Int? = null,
     val summary: String? = null,
+    @SerializedName("ai_report") val aiReport: String? = null,
     @SerializedName("created_at") val createdAt: String? = null
 )
 
@@ -36,4 +37,10 @@ interface ReportApiService {
 
     @POST("api/reports/generate")
     fun generateReports(@Query("userId") userId: Long): Call<ApiResponse<String>>
+
+    @POST("api/reports/generate-ai")
+    fun generateAiReport(
+        @Query("userId") userId: Long,
+        @Query("periodType") periodType: String
+    ): Call<ApiResponse<HealthReportDto>>
 }

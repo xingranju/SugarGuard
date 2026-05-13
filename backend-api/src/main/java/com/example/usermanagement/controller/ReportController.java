@@ -58,6 +58,18 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.success("报告生成完成"));
     }
 
+    @PostMapping("/generate-ai")
+    public ResponseEntity<ApiResponse<HealthReportDto>> generateAiReport(
+            Authentication authentication,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "weekly") String periodType) {
+        Long uid = resolveUserId(authentication, userId);
+        if (uid == null) return ResponseEntity.ok(ApiResponse.error("请登录或传入 userId"));
+
+        HealthReport report = reportService.generateAiNutritionReport(uid, periodType);
+        return ResponseEntity.ok(ApiResponse.success(HealthReportDto.fromEntity(report)));
+    }
+
     /** JWT 优先；无 Security 上下文时使用查询参数 userId（与 /api/meals 等 permitAll 用法一致） */
     private Long resolveUserId(Authentication authentication, Long queryUserId) {
         Long fromAuth = getUserId(authentication);

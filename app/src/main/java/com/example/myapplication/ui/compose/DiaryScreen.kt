@@ -6,8 +6,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -54,16 +56,26 @@ fun DiaryScreen(
 ) {
     var showAddDrinkScreen by remember { mutableStateOf(false) }
     var showManualAddScreen by remember { mutableStateOf(false) }
+    var isMonthView by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-    val userId = prefs.getLong("user_id", 1).toInt()
+    val authPrefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+    val settingsPrefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    val userId = authPrefs.getLong("user_id", 1).toInt()
+    
+    // Read theme settings
+    val darkModeEnabled = settingsPrefs.getBoolean("dark_mode", false)
+    val accessibilityModeEnabled = settingsPrefs.getBoolean("accessibility_mode", false)
+    val isDarkMode = darkModeEnabled || isSystemInDarkTheme()
+
+    val selectedDate by mealViewModel.selectedDate.observeAsState(LocalDate.now())
 
     if (showAddDrinkScreen) {
         AddDrinkRecordScreen(
             onNavigateBack = {
                 showAddDrinkScreen = false
-                mealViewModel.getDailyMeals(userId, LocalDate.now())
-            }
+                mealViewModel.getDailyMeals(userId, mealViewModel.selectedDate.value ?: LocalDate.now())
+            },
+            selectedDate = selectedDate
         )
         return
     }
@@ -79,34 +91,9 @@ fun DiaryScreen(
         )
         return
     }
-
-    val selectedDate by mealViewModel.selectedDate.observeAsState(LocalDate.now())
     val dailyMeals by mealViewModel.dailyMeals.observeAsState(emptyList())
     val isLoading by mealViewModel.isLoading.observeAsState(false)
     val dailySugarTotal by mealViewModel.dailySugarTotal.observeAsState(0.0)
-    val mealConflict by mealViewModel.mealConflict.observeAsState()
-
-    mealConflict?.let { conflict ->
-        AlertDialog(
-            onDismissRequest = { mealViewModel.dismissConflict() },
-            title = { Text("同名记录已存在") },
-            text = {
-                Text("今日${getMealTypeName(conflict.newMealType)}已有「${conflict.newFoodName}」" +
-                    "（${conflict.existingMeal.sugarContent}g 糖 / ${conflict.existingMeal.calories} kcal）。\n\n" +
-                    "是否再添加一份？")
-            },
-            confirmButton = {
-                TextButton(onClick = { mealViewModel.confirmAddDespiteConflict() }) {
-                    Text("再添加一份")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mealViewModel.dismissConflict() }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
 
     LaunchedEffect(selectedDate) {
         mealViewModel.getDailyMeals(userId, selectedDate)
@@ -114,12 +101,8 @@ fun DiaryScreen(
 
     val today = LocalDate.now()
     val baseDate = selectedDate
-    var viewMode by remember { mutableStateOf("week") }
-    val weekDates = if (viewMode == "week") {
-        (-3..3).map { baseDate.plusDays(it.toLong()) }
-    } else {
-        (0 until 30).map { baseDate.minusDays(29L - it) }
-    }
+    // 以选中日期为中心，显示前3天 + 选中日期 + 后3天 = 共7天
+    val weekDates = (-3..3).map { baseDate.plusDays(it.toLong()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
@@ -161,7 +144,7 @@ fun DiaryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF9FAFB))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -172,26 +155,56 @@ fun DiaryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.width(40.dp))
+                // Left side - title
                 Text(
                     "饮食日记",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF333333)
                 )
-                Row {
-                    TextButton(
-                        onClick = { viewMode = if (viewMode == "week") "month" else "week" },
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+
+                // Right side - view toggle, back to today and date picker buttons
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // View toggle button - switch between week and month view
+                    Button(
+                        onClick = { isMonthView = !isMonthView },
+                        modifier = Modifier.height(32.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isMonthView) MintGreen else Color(0xFF0288D1).copy(alpha = 0.15f)
+                        ),
+                        border = if (!isMonthView) BorderStroke(1.dp, Color(0xFF0288D1)) else null,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) {
                         Text(
-                            if (viewMode == "week") "7天" else "30天",
-                            fontSize = 12.sp,
-                            color = MintGreen,
-                            fontWeight = FontWeight.Bold
+                            if (isMonthView) "月" else "周",
+                            fontSize = 11.sp,
+                            color = if (isMonthView) Color.White else Color(0xFF0288D1),
+                            fontWeight = FontWeight.Medium
                         )
                     }
-                    IconButton(onClick = { showDatePicker = true }) {
+
+                    // Back to today button (if not already on today)
+                    if (selectedDate != today) {
+                        Button(
+                            onClick = { mealViewModel.selectDate(today, userId) },
+                            modifier = Modifier.height(32.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF0288D1).copy(alpha = 0.15f)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFF0288D1)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                        ) {
+                            Text("回到今日", fontSize = 11.sp, color = Color(0xFF0288D1), fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    // Date picker button - fixed on right
+                    IconButton(onClick = { showDatePicker = true }, modifier = Modifier.size(40.dp)) {
                         Icon(
                             Icons.Default.DateRange,
                             contentDescription = "选择日期",
@@ -203,39 +216,98 @@ fun DiaryScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Horizontal date selector
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(weekDates) { _, date ->
-                    val isSelected = date == selectedDate
-                    val isToday = date == today
-                    Surface(
-                        modifier = Modifier
-                            .width(50.dp)
-                            .clickable { mealViewModel.selectDate(date, userId) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MintGreen else Color(0xFFF5F5F5)
+            // Date selector - Week view or Month view
+            if (isMonthView) {
+                // Month view - display all dates in the selected month
+                MonthViewCalendar(
+                    selectedDate = selectedDate,
+                    today = today,
+                    onDateSelected = { date ->
+                        mealViewModel.selectDate(date, userId)
+                    }
+                )
+            } else {
+                // Week view - display 7 days
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Previous week button - fixed on left
+                    IconButton(
+                        onClick = {
+                            val newDate = selectedDate.minusDays(7)
+                            mealViewModel.selectDate(newDate, userId)
+                        },
+                        modifier = Modifier.size(18.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = if (isToday && isSelected) "今天"
-                                else date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.CHINESE),
-                                fontSize = 10.sp,
-                                color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color(0xFFBDBDBD)
-                            )
-                            Text(
-                                text = "${date.dayOfMonth}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.White else Color(0xFF757575)
-                            )
+                        Icon(Icons.Default.ChevronLeft, "上一周", tint = MintGreen)
+                    }
+
+                    // Week dates scroll - centered
+                    LazyRow(
+                        modifier = Modifier
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
+                    ) {
+                        itemsIndexed(weekDates) { _, date ->
+                            val isSelected = date == selectedDate
+                            val isToday = date == today
+                            val backgroundColor = when {
+                                isSelected && isToday -> Color(0xFF26A69A) // 今日 + 选中，使用深绿色
+                                isSelected -> MintGreen // 选中，使用薄荷绿
+                                isToday -> Color(0xFF0288D1).copy(alpha = 0.15f) // 今日未选中，使用低透明度蓝色
+                                else -> Color(0xFFF5F5F5)
+                            }
+                            val textColor = when {
+                                isSelected || (isToday && isSelected) -> Color.White
+                                isToday -> Color(0xFF0288D1)
+                                else -> Color(0xFF757575)
+                            }
+                            val borderColor = if (isToday && !isSelected) Color(0xFF0288D1) else null
+
+                            Surface(
+                                modifier = Modifier
+                                    .width(45.dp)
+                                    .clickable { mealViewModel.selectDate(date, userId) }
+                                    .then(if (borderColor != null) Modifier.border(1.dp, borderColor, RoundedCornerShape(12.dp)) else Modifier),
+                                shape = RoundedCornerShape(12.dp),
+                                color = backgroundColor
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = when {
+                                            isToday -> "今"
+                                            else -> date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.CHINESE)
+                                        },
+                                        fontSize = 9.sp,
+                                        color = textColor.copy(alpha = if (isSelected) 0.8f else 1f)
+                                    )
+                                    Text(
+                                        text = "${date.dayOfMonth}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor
+                                    )
+                                }
+                            }
                         }
+                    }
+
+                    // Next week button - fixed on right
+                    IconButton(
+                        onClick = {
+                            val newDate = selectedDate.plusDays(7)
+                            mealViewModel.selectDate(newDate, userId)
+                        },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(Icons.Default.ChevronRight, "下一周", tint = MintGreen)
                     }
                 }
             }
@@ -709,6 +781,7 @@ private fun ManualAddMealScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val selectedDate by mealViewModel.selectedDate.observeAsState(LocalDate.now())
     var foodName by remember { mutableStateOf("") }
     var sugarContent by remember { mutableStateOf("") }
     var calories by remember { mutableStateOf("") }
@@ -720,7 +793,11 @@ private fun ManualAddMealScreen(
 
     val mealTypes = listOf("breakfast" to "早餐", "lunch" to "午餐", "dinner" to "晚餐", "snack" to "加餐")
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        selectedImageUri = uri
+    }
+
+    val fileBrowser = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         selectedImageUri = uri
     }
 
@@ -771,23 +848,51 @@ private fun ManualAddMealScreen(
                             }
                         }
                     } else {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().height(100.dp)
-                                .clickable { imagePicker.launch("image/*") },
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF5F5F5),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(
-                                brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE0E0E0))
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                            Surface(
+                                modifier = Modifier.weight(1f).height(100.dp)
+                                    .clickable {
+                                        photoPicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    },
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFF5F5F5),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE0E0E0))
+                                )
                             ) {
-                                Icon(Icons.Default.AddPhotoAlternate, "添加图片", tint = Gray400, modifier = Modifier.size(32.dp))
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("点击选择图片", fontSize = 12.sp, color = Gray400)
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Default.AddPhotoAlternate, "从相册选择", tint = MintGreen, modifier = Modifier.size(28.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("从相册选择", fontSize = 12.sp, color = Gray600)
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.weight(1f).height(100.dp)
+                                    .clickable {
+                                        fileBrowser.launch(arrayOf("image/*"))
+                                    },
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFF5F5F5),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE0E0E0))
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Default.FolderOpen, "浏览文件", tint = Color(0xFF42A5F5), modifier = Modifier.size(28.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("浏览文件", fontSize = 12.sp, color = Gray600)
+                                }
                             }
                         }
                     }
@@ -937,7 +1042,8 @@ private fun ManualAddMealScreen(
                         portionSize = portionSize.trim().ifBlank { null },
                         notes = notes.trim().ifBlank { null },
                         mealType = mealTypes[selectedMealType].first,
-                        imageUrl = imageUrl
+                        imageUrl = imageUrl,
+                        mealDate = selectedDate
                     )
                     Toast.makeText(context, "添加成功", Toast.LENGTH_SHORT).show()
                     onBack()
@@ -952,6 +1058,169 @@ private fun ManualAddMealScreen(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
                     Text("添加记录", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthViewCalendar(
+    selectedDate: LocalDate,
+    today: LocalDate,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    val currentMonth = selectedDate.month
+    val currentYear = selectedDate.year
+    val firstDayOfMonth = LocalDate.of(currentYear, currentMonth, 1)
+    val lastDayOfMonth = firstDayOfMonth.plusMonths(1).minusDays(1)
+    
+    // Get the day of week the month starts on (1 = Monday, 7 = Sunday)
+    val startDayOfWeek = firstDayOfMonth.dayOfWeek.value
+    
+    // Create a list of all days to display in the calendar (including days from previous month)
+    val daysToDisplay = mutableListOf<LocalDate?>()
+    
+    // Add empty days for the start of the month
+    for (i in 1 until startDayOfWeek) {
+        daysToDisplay.add(null)
+    }
+    
+    // Add all days of the current month
+    for (day in 1..lastDayOfMonth.dayOfMonth) {
+        daysToDisplay.add(LocalDate.of(currentYear, currentMonth, day))
+    }
+    
+    // Fill remaining days to complete the last row (make it a multiple of 7)
+    while (daysToDisplay.size % 7 != 0) {
+        daysToDisplay.add(null)
+    }
+    
+    val cellSize = 48.dp
+    val cellPadding = 4.dp
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        // Month and year header with navigation
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = {
+                    val previousMonth = selectedDate.minusMonths(1)
+                    onDateSelected(previousMonth)
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(Icons.Default.ChevronLeft, "上一月", tint = MintGreen)
+            }
+            
+            Text(
+                "${currentYear}年 ${String.format("%02d", currentMonth.value)}月",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF333333)
+            )
+            
+            IconButton(
+                onClick = {
+                    val nextMonth = selectedDate.plusMonths(1)
+                    onDateSelected(nextMonth)
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(Icons.Default.ChevronRight, "下一月", tint = MintGreen)
+            }
+        }
+        
+        // Weekday labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(cellPadding)
+        ) {
+            listOf("一", "二", "三", "四", "五", "六", "日").forEach { day ->
+                Box(
+                    modifier = Modifier
+                        .size(cellSize)
+                        .padding(cellPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        day,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFBDBDBD),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        }
+        
+        // Calendar grid
+        for (week in daysToDisplay.chunked(7)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(cellPadding)
+            ) {
+                for (day in week) {
+                    Box(
+                        modifier = Modifier
+                            .size(cellSize)
+                            .padding(cellPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (day == null) {
+                            // Empty cell for non-current-month dates
+                            Box(modifier = Modifier.fillMaxSize())
+                        } else {
+                            val isSelected = day == selectedDate
+                            val isToday = day == today
+                            val backgroundColor = when {
+                                isSelected && isToday -> Color(0xFF26A69A)
+                                isSelected -> MintGreen
+                                isToday -> Color(0xFF0288D1).copy(alpha = 0.15f)
+                                else -> Color(0xFFF5F5F5)
+                            }
+                            val textColor = when {
+                                isSelected || (isToday && isSelected) -> Color.White
+                                isToday -> Color(0xFF0288D1)
+                                else -> Color(0xFF757575)
+                            }
+                            val borderColor = if (isToday && !isSelected) Color(0xFF0288D1) else null
+                            
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onDateSelected(day) }
+                                    .then(if (borderColor != null) Modifier.border(1.dp, borderColor, RoundedCornerShape(8.dp)) else Modifier),
+                                shape = RoundedCornerShape(8.dp),
+                                color = backgroundColor
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${day.dayOfMonth}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = textColor
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

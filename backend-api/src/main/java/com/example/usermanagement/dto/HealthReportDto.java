@@ -47,6 +47,9 @@ public class HealthReportDto {
 
     private String summary;
 
+    @JsonProperty("ai_report")
+    private String aiReport;
+
     @JsonProperty("created_at")
     private String createdAt;
 
@@ -69,6 +72,7 @@ public class HealthReportDto {
         dto.sugarLimit = r.getSugarLimit();
         dto.score = r.getScore();
         dto.summary = r.getSummary();
+        dto.aiReport = r.getAiReport();
         dto.createdAt = r.getCreatedAt() != null ? r.getCreatedAt().toString() : null;
         return dto;
     }
@@ -103,6 +107,8 @@ public class HealthReportDto {
     public void setScore(Integer score) { this.score = score; }
     public String getSummary() { return summary; }
     public void setSummary(String summary) { this.summary = summary; }
+    public String getAiReport() { return aiReport; }
+    public void setAiReport(String aiReport) { this.aiReport = aiReport; }
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 }
