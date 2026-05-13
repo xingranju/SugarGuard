@@ -90,6 +90,9 @@ fun ProfileScreen(onBack: () -> Unit) {
     var showFeedback by remember { mutableStateOf(false) }
     var showAchievements by remember { mutableStateOf(false) }
     var showReport by remember { mutableStateOf(false) }
+    var showCheckIn by remember { mutableStateOf(false) }
+    var showRanking by remember { mutableStateOf(false) }
+    var showFamily by remember { mutableStateOf(false) }
     var showNutritionCoach by remember { mutableStateOf(false) }
     var showHistoryScan by remember { mutableStateOf(false) }
 
@@ -103,6 +106,9 @@ fun ProfileScreen(onBack: () -> Unit) {
     if (showFeedback) { FeedbackScreen(onBack = { showFeedback = false }); return }
     if (showAchievements) { AchievementsScreen(onBack = { showAchievements = false }); return }
     if (showReport) { ReportScreen(onBack = { showReport = false }); return }
+    if (showCheckIn) { CheckInScreen(onBack = { showCheckIn = false }); return }
+    if (showRanking) { RankingScreen(onBack = { showRanking = false }); return }
+    if (showFamily) { FamilyScreen(onBack = { showFamily = false }); return }
     if (showNutritionCoach) { NutritionCoachScreen(onBack = { showNutritionCoach = false }); return }
     if (showHistoryScan) { HistoryScanScreen(onBack = { showHistoryScan = false }); return }
 
@@ -189,6 +195,9 @@ fun ProfileScreen(onBack: () -> Unit) {
                 ProfileItem(Icons.Default.LocalCafe, "饮品偏好管理", Color(0xFFFFF3E0), Color(0xFFFFB74D)) { showDrinkPreference = true },
                 ProfileItem(Icons.Default.NotificationsActive, "提醒设置", Color(0xFFF3E5F5), Color(0xFFBA68C8)) { showNotifications = true },
                 ProfileItem(Icons.Default.EmojiEvents, "控糖成就", Color(0xFFFFF8E1), Color(0xFFFFCA28), "已连续达标 7 天") { showAchievements = true },
+                ProfileItem(Icons.Default.CheckCircle, "控糖打卡", Color(0xFFE8F5E9), Color(0xFF66BB6A), "每日打卡赢徽章") { showCheckIn = true },
+                ProfileItem(Icons.Default.Leaderboard, "社区排行", Color(0xFFE3F2FD), Color(0xFF42A5F5), "看看大家的表现") { showRanking = true },
+                ProfileItem(Icons.Default.FamilyRestroom, "家庭共管", Color(0xFFFCE4EC), Color(0xFFEF5350), "家人一起控糖") { showFamily = true },
             )
         )
 

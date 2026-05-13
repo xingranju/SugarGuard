@@ -82,6 +82,8 @@ public class SecurityConfig {
                 .antMatchers("/api/notifications/**").permitAll()
                 .antMatchers("/api/notification-settings/**").permitAll()
                 .antMatchers("/api/reports/**").permitAll()
+                .antMatchers("/api/checkin/**").permitAll()
+                .antMatchers("/api/family/**").permitAll()
                 // 其他请求需要认证
                 .anyRequest().authenticated()
             )

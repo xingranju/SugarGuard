@@ -41,6 +41,8 @@ public class RetrofitClient {
     private final NotificationApiService notificationApiService;
     private final NotificationSettingsApiService notificationSettingsApiService;
     private final ReportApiService reportApiService;
+    private final CheckInApiService checkInApiService;
+    private final FamilyApiService familyApiService;
     private static Context appContext;
     
     private RetrofitClient() {
@@ -100,6 +102,8 @@ public class RetrofitClient {
         notificationApiService = retrofit.create(NotificationApiService.class);
         notificationSettingsApiService = retrofit.create(NotificationSettingsApiService.class);
         reportApiService = retrofit.create(ReportApiService.class);
+        checkInApiService = retrofit.create(CheckInApiService.class);
+        familyApiService = retrofit.create(FamilyApiService.class);
     }
     
     /**
@@ -287,6 +291,22 @@ public class RetrofitClient {
 
     public static ReportApiService getReportApiService() {
         return getInstance().getReportApi();
+    }
+
+    public CheckInApiService getCheckInApi() {
+        return checkInApiService;
+    }
+
+    public static CheckInApiService getCheckInApiService() {
+        return getInstance().getCheckInApi();
+    }
+
+    public FamilyApiService getFamilyApi() {
+        return familyApiService;
+    }
+
+    public static FamilyApiService getFamilyApiService() {
+        return getInstance().getFamilyApi();
     }
     
     /**
