@@ -11,4 +11,5 @@ public interface HealthAlertRepository extends JpaRepository<HealthAlert, Long> 
     List<HealthAlert> findByGroupIdOrderByCreatedAtDesc(Long groupId);
     List<HealthAlert> findByUserIdAndIsReadFalse(Long userId);
     long countByGroupIdAndIsReadFalse(Long groupId);
+    void deleteByGroupId(Long groupId);
 }

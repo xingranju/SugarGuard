@@ -28,18 +28,40 @@ public class CheckInService {
 
     @PostConstruct
     public void initBadges() {
-        if (badgeRepository.count() == 0) {
+        if (badgeRepository.count() < 15) {
+            userBadgeRepository.deleteAll();
+            badgeRepository.deleteAll();
             List<Badge> badges = Arrays.asList(
-                new Badge("初心者", "完成首次打卡", "fire", "streak", "首次打卡", 1, 1),
-                new Badge("三日坚持", "连续打卡3天", "fire", "streak", "连续打卡3天", 3, 2),
-                new Badge("周达人", "连续打卡7天", "fire", "streak", "连续打卡7天", 7, 3),
-                new Badge("月冠军", "连续打卡30天", "fire", "streak", "连续打卡30天", 30, 4),
-                new Badge("控糖新星", "累计打卡10次", "trophy", "total", "累计打卡10次", 10, 5),
-                new Badge("控糖达人", "累计打卡30次", "trophy", "total", "累计打卡30次", 30, 6),
-                new Badge("控糖大师", "累计打卡100次", "trophy", "total", "累计打卡100次", 100, 7),
-                new Badge("完美控糖", "连续7天糖摄入在限制内", "star", "special", "连续7天达标", 7, 8)
+                new Badge("初心者", "完成首次打卡，迈出控糖第一步", "🌟", "streak", "首次打卡", 1, 1),
+                new Badge("三日坚持", "连续打卡3天，好的开始", "🔥", "streak", "连续打卡3天", 3, 2),
+                new Badge("周达人", "连续打卡7天，一周不落", "⭐", "streak", "连续打卡7天", 7, 3),
+                new Badge("半月勇士", "连续打卡14天，毅力可嘉", "🛡️", "streak", "连续打卡14天", 14, 4),
+                new Badge("月冠军", "连续打卡30天，自律典范", "🏆", "streak", "连续打卡30天", 30, 5),
+                new Badge("百日传说", "连续打卡100天，传奇成就", "🐉", "streak", "连续打卡100天", 100, 6),
+                new Badge("控糖新星", "累计打卡10次", "💫", "total", "累计打卡10次", 10, 7),
+                new Badge("控糖达人", "累计打卡30次，坚持有回报", "🎯", "total", "累计打卡30次", 30, 8),
+                new Badge("控糖精英", "累计打卡50次，越来越棒", "🎖️", "total", "累计打卡50次", 50, 9),
+                new Badge("控糖大师", "累计打卡100次，实力非凡", "👑", "total", "累计打卡100次", 100, 10),
+                new Badge("控糖之王", "累计打卡200次，无人能及", "👸", "total", "累计打卡200次", 200, 11),
+                new Badge("低糖先锋", "连续3天糖摄入达标", "🍃", "special", "连续3天达标", 3, 12),
+                new Badge("完美控糖", "连续7天糖摄入达标", "💎", "special", "连续7天达标", 7, 13),
+                new Badge("健康守护者", "连续14天糖摄入达标", "💪", "special", "连续14天达标", 14, 14),
+                new Badge("至尊控糖", "连续30天糖摄入达标，真正的自律王", "✨", "special", "连续30天达标", 30, 15)
             );
             badgeRepository.saveAll(badges);
+        }
+        retroAwardBadges();
+    }
+
+    private void retroAwardBadges() {
+        List<Long> userIds = checkInRepository.findAllDistinctUserIds();
+        for (Long uid : userIds) {
+            int streak = getStreak(uid);
+            Integer maxStreak = checkInRepository.findMaxStreakByUserId(uid);
+            if (maxStreak != null && maxStreak > streak) {
+                streak = maxStreak;
+            }
+            checkAndAwardBadges(uid, streak);
         }
     }
 
@@ -220,9 +242,11 @@ public class CheckInService {
         }
 
         rankings.sort((a, b) -> {
-            int cmp = Integer.compare(b.getStreak(), a.getStreak());
+            int cmp = Integer.compare(b.getTotalCheckIns(), a.getTotalCheckIns());
             if (cmp != 0) return cmp;
-            return Integer.compare(b.getTotalCheckIns(), a.getTotalCheckIns());
+            cmp = Integer.compare(b.getBadgeCount(), a.getBadgeCount());
+            if (cmp != 0) return cmp;
+            return Integer.compare(b.getStreak(), a.getStreak());
         });
 
         for (int i = 0; i < rankings.size(); i++) {

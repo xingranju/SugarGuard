@@ -52,6 +52,40 @@ public class FamilyController {
         }
     }
 
+    @PutMapping("/{groupId}")
+    public ResponseEntity<?> updateFamily(@PathVariable Long groupId,
+                                           @RequestParam Long userId,
+                                           @RequestBody UpdateFamilyRequest request) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success(
+                familyService.updateFamily(groupId, userId, request.getName(), request.getAvatarUrl(), request.getDescription())));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{groupId}")
+    public ResponseEntity<?> deleteFamily(@PathVariable Long groupId,
+                                           @RequestParam Long userId) {
+        try {
+            familyService.deleteFamily(groupId, userId);
+            return ResponseEntity.ok(ApiResponse.success("家庭已删除"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{groupId}/leave")
+    public ResponseEntity<?> leaveFamily(@PathVariable Long groupId,
+                                          @RequestParam Long userId) {
+        try {
+            familyService.leaveFamily(groupId, userId);
+            return ResponseEntity.ok(ApiResponse.success("已退出家庭"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{groupId}/members/{targetUserId}")
     public ResponseEntity<?> removeMember(@PathVariable Long groupId,
                                            @PathVariable Long targetUserId,

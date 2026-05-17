@@ -106,7 +106,7 @@ fun ProfileScreen(onBack: () -> Unit) {
     if (showFeedback) { FeedbackScreen(onBack = { showFeedback = false }); return }
     if (showAchievements) { AchievementsScreen(onBack = { showAchievements = false }); return }
     if (showReport) { ReportScreen(onBack = { showReport = false }); return }
-    if (showCheckIn) { CheckInScreen(onBack = { showCheckIn = false }); return }
+    if (showCheckIn) { CheckInScreen(onBack = { showCheckIn = false }, onNavigateToAchievements = { showCheckIn = false; showAchievements = true }); return }
     if (showRanking) { RankingScreen(onBack = { showRanking = false }); return }
     if (showFamily) { FamilyScreen(onBack = { showFamily = false }); return }
     if (showNutritionCoach) { NutritionCoachScreen(onBack = { showNutritionCoach = false }); return }
@@ -186,37 +186,48 @@ fun ProfileScreen(onBack: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Health section
+        SectionTitle("个人健康", Modifier.padding(horizontal = 24.dp))
         ProfileMenuGroup(
             modifier = Modifier.padding(horizontal = 24.dp),
             items = listOf(
-                ProfileItem(Icons.Default.Badge, "健康档案", MintBg, MintGreen) { showHealthProfile = true },
-                ProfileItem(Icons.Default.FavoriteBorder, "每日健康数据", Color(0xFFE3F2FD), Color(0xFF64B5F6)) { showDailyHealthRecord = true },
-                ProfileItem(Icons.Default.LocalCafe, "饮品偏好管理", Color(0xFFFFF3E0), Color(0xFFFFB74D)) { showDrinkPreference = true },
-                ProfileItem(Icons.Default.NotificationsActive, "提醒设置", Color(0xFFF3E5F5), Color(0xFFBA68C8)) { showNotifications = true },
-                ProfileItem(Icons.Default.EmojiEvents, "控糖成就", Color(0xFFFFF8E1), Color(0xFFFFCA28), "已连续达标 7 天") { showAchievements = true },
+                ProfileItem(Icons.Default.Badge, "健康档案", MintBg, MintGreen, "个人健康数据总览") { showHealthProfile = true },
+                ProfileItem(Icons.Default.FavoriteBorder, "每日健康数据", Color(0xFFE3F2FD), Color(0xFF64B5F6), "记录每天身体指标") { showDailyHealthRecord = true },
+                ProfileItem(Icons.Default.LocalCafe, "饮品偏好管理", Color(0xFFFFF3E0), Color(0xFFFFB74D), "管理饮品口味偏好") { showDrinkPreference = true },
+            )
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SectionTitle("控糖任务", Modifier.padding(horizontal = 24.dp))
+        ProfileMenuGroup(
+            modifier = Modifier.padding(horizontal = 24.dp),
+            items = listOf(
                 ProfileItem(Icons.Default.CheckCircle, "控糖打卡", Color(0xFFE8F5E9), Color(0xFF66BB6A), "每日打卡赢徽章") { showCheckIn = true },
+                ProfileItem(Icons.Default.EmojiEvents, "控糖成就", Color(0xFFFFF8E1), Color(0xFFFFCA28), "已连续达标 7 天") { showAchievements = true },
                 ProfileItem(Icons.Default.Leaderboard, "社区排行", Color(0xFFE3F2FD), Color(0xFF42A5F5), "看看大家的表现") { showRanking = true },
+            )
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SectionTitle("智能服务", Modifier.padding(horizontal = 24.dp))
+        ProfileMenuGroup(
+            modifier = Modifier.padding(horizontal = 24.dp),
+            items = listOf(
+                ProfileItem(Icons.Default.AutoAwesome, "AI 营养教练", Color(0xFFE0F2F1), Color(0xFF26A69A), "智能饮食建议") { showNutritionCoach = true },
                 ProfileItem(Icons.Default.FamilyRestroom, "家庭共管", Color(0xFFFCE4EC), Color(0xFFEF5350), "家人一起控糖") { showFamily = true },
+                ProfileItem(Icons.Default.Assessment, "报告历史", Color(0xFFE8F5E9), Color(0xFF66BB6A), "查看健康分析报告") { showReport = true },
+                ProfileItem(Icons.Default.History, "历史扫描记录", Color(0xFFF3E5F5), Color(0xFFEC407A), "过往食物扫描结果") { showHistoryScan = true },
             )
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        SectionTitle("系统设置", Modifier.padding(horizontal = 24.dp))
         ProfileMenuGroup(
             modifier = Modifier.padding(horizontal = 24.dp),
             items = listOf(
-                ProfileItem(Icons.Default.AutoAwesome, "AI 营养教练", Color(0xFFE0F2F1), Color(0xFF26A69A)) { showNutritionCoach = true },
-                ProfileItem(Icons.Default.Assessment, "报告历史", Color(0xFFE8F5E9), Color(0xFF66BB6A)) { showReport = true },
-                ProfileItem(Icons.Default.History, "历史扫描记录", Color(0xFFFCE4EC), Color(0xFFEC407A)) { showHistoryScan = true },
-            )
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        ProfileMenuGroup(
-            modifier = Modifier.padding(horizontal = 24.dp),
-            items = listOf(
+                ProfileItem(Icons.Default.NotificationsActive, "提醒设置", Color(0xFFF3E5F5), Color(0xFFBA68C8), "管理提醒通知") { showNotifications = true },
                 ProfileItem(Icons.Default.Settings, "设置", Color(0xFFF5F5F5), Color(0xFFBDBDBD)) { showSettings = true },
                 ProfileItem(Icons.Default.HelpOutline, "帮助与反馈", Color(0xFFF5F5F5), Color(0xFFBDBDBD)) { showHelp = true },
                 ProfileItem(Icons.Default.ExitToApp, "退出登录", Color(0xFFFFEBEE), Color(0xFFEF5350)) { showLogoutDialog = true },
@@ -258,6 +269,18 @@ data class ProfileItem(
     val subtitle: String? = null,
     val onClick: () -> Unit
 )
+
+@Composable
+private fun SectionTitle(title: String, modifier: Modifier = Modifier) {
+    Text(
+        title,
+        modifier = modifier.padding(bottom = 8.dp),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFF999999),
+        letterSpacing = 1.sp
+    )
+}
 
 @Composable
 private fun ProfileMenuGroup(modifier: Modifier = Modifier, items: List<ProfileItem>) {

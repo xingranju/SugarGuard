@@ -1,5 +1,6 @@
 package com.example.usermanagement.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -30,7 +31,9 @@ public class CheckInDto {
     public void setNotes(String notes) { this.notes = notes; }
 
     public static class CheckInRequest {
+        @JsonProperty("userId")
         private Long userId;
+        @JsonProperty("sugarIntake")
         private Float sugarIntake;
         private String notes;
 

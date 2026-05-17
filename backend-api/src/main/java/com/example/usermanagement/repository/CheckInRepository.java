@@ -24,4 +24,7 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     @Query("SELECT DISTINCT c.userId FROM CheckIn c")
     List<Long> findAllDistinctUserIds();
+
+    @Query("SELECT MAX(c.streak) FROM CheckIn c WHERE c.userId = :userId")
+    Integer findMaxStreakByUserId(Long userId);
 }

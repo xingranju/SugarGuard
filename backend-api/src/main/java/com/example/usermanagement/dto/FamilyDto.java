@@ -1,5 +1,6 @@
 package com.example.usermanagement.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public class FamilyDto {
@@ -9,6 +10,9 @@ public class FamilyDto {
         private String name;
         private String inviteCode;
         private Integer memberCount;
+        private String avatarUrl;
+        private String description;
+        private Long creatorId;
         private String createdAt;
 
         public Long getId() { return id; }
@@ -19,6 +23,12 @@ public class FamilyDto {
         public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
         public Integer getMemberCount() { return memberCount; }
         public void setMemberCount(Integer memberCount) { this.memberCount = memberCount; }
+        public String getAvatarUrl() { return avatarUrl; }
+        public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+        public Long getCreatorId() { return creatorId; }
+        public void setCreatorId(Long creatorId) { this.creatorId = creatorId; }
         public String getCreatedAt() { return createdAt; }
         public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
     }
@@ -64,9 +74,22 @@ public class FamilyDto {
     }
 
     public static class JoinFamilyRequest {
+        @JsonProperty("inviteCode")
         private String inviteCode;
         public String getInviteCode() { return inviteCode; }
         public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
+    }
+
+    public static class UpdateFamilyRequest {
+        private String name;
+        private String avatarUrl;
+        private String description;
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getAvatarUrl() { return avatarUrl; }
+        public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
     }
 
     public static class HealthAlertDto {

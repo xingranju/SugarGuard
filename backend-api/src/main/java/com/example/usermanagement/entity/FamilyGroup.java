@@ -20,6 +20,12 @@ public class FamilyGroup {
     @Column(name = "creator_id", nullable = false)
     private Long creatorId;
 
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    @Column(name = "description", length = 200)
+    private String description;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -38,6 +44,10 @@ public class FamilyGroup {
     public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
     public Long getCreatorId() { return creatorId; }
     public void setCreatorId(Long creatorId) { this.creatorId = creatorId; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

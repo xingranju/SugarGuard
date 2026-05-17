@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.compose
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,10 +19,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.myapplication.R
 import com.example.myapplication.api.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,7 +43,7 @@ private enum class AchievementTier(val label: String, val bgColors: List<Color>,
 }
 
 private data class AchievementItem(
-    val icon: String,
+    val iconRes: Int,
     val title: String,
     val description: String,
     val date: String,
@@ -250,74 +253,74 @@ private fun buildAchievementList(
 ): List<AchievementItem> {
     val list = mutableListOf<AchievementItem>()
 
-    fun add(icon: String, title: String, desc: String, unlocked: Boolean, tier: AchievementTier, cat: String, progress: String? = null) {
+    fun add(iconRes: Int, title: String, desc: String, unlocked: Boolean, tier: AchievementTier, cat: String, progress: String? = null) {
         list.add(AchievementItem(
-            icon = if (unlocked) icon else "🔒",
+            iconRes = if (unlocked) iconRes else R.drawable.ic_ach_locked,
             title = title, description = desc,
             date = if (unlocked) firstRecordDate.takeLast(5) else "",
             unlocked = unlocked, progress = progress, tier = tier, category = cat
         ))
     }
 
-    add("🌱", "初见甜蜜", "完成首次食物记录，控糖之旅从这里开始", totalRecords >= 1, AchievementTier.BRONZE, "记录",
+    add(R.drawable.ic_ach_first_record, "初见甜蜜", "完成首次食物记录，控糖之旅从这里开始", totalRecords >= 1, AchievementTier.BRONZE, "记录",
         if (totalRecords < 1) "$totalRecords/1" else null)
-    add("📝", "认真记录", "累计记录10条饮食数据", totalRecords >= 10, AchievementTier.BRONZE, "记录",
+    add(R.drawable.ic_ach_ten_records, "认真记录", "累计记录10条饮食数据", totalRecords >= 10, AchievementTier.BRONZE, "记录",
         if (totalRecords < 10) "$totalRecords/10" else null)
-    add("📊", "数据达人", "累计记录50条饮食数据，养成好习惯", totalRecords >= 50, AchievementTier.SILVER, "记录",
+    add(R.drawable.ic_ach_fifty_records, "数据达人", "累计记录50条饮食数据，养成好习惯", totalRecords >= 50, AchievementTier.SILVER, "记录",
         if (totalRecords in 10..49) "$totalRecords/50" else null)
-    add("💯", "百条记录", "累计记录100条，你是最认真的记录者", totalRecords >= 100, AchievementTier.GOLD, "记录",
+    add(R.drawable.ic_ach_hundred_records, "百条记录", "累计记录100条，你是最认真的记录者", totalRecords >= 100, AchievementTier.GOLD, "记录",
         if (totalRecords in 50..99) "$totalRecords/100" else null)
-    add("📚", "记录狂魔", "累计记录200条，简直停不下来", totalRecords >= 200, AchievementTier.GOLD, "记录",
+    add(R.drawable.ic_ach_two_hundred_records, "记录狂魔", "累计记录200条，简直停不下来", totalRecords >= 200, AchievementTier.GOLD, "记录",
         if (totalRecords in 100..199) "$totalRecords/200" else null)
-    add("🏛️", "数据之王", "累计记录500条，你就是行走的数据库", totalRecords >= 500, AchievementTier.DIAMOND, "记录",
+    add(R.drawable.ic_ach_five_hundred_records, "数据之王", "累计记录500条，你就是行走的数据库", totalRecords >= 500, AchievementTier.DIAMOND, "记录",
         if (totalRecords in 200..499) "$totalRecords/500" else null)
-    add("👑", "传奇记录者", "累计记录1000条，前无古人", totalRecords >= 1000, AchievementTier.LEGENDARY, "记录",
+    add(R.drawable.ic_ach_thousand_records, "传奇记录者", "累计记录1000条，前无古人", totalRecords >= 1000, AchievementTier.LEGENDARY, "记录",
         if (totalRecords in 500..999) "$totalRecords/1000" else null)
 
-    add("🍃", "初试身手", "连续3天糖分不超标", consecutiveDays >= 3, AchievementTier.BRONZE, "连续达标",
+    add(R.drawable.ic_ach_three_day_streak, "初试身手", "连续3天糖分不超标", consecutiveDays >= 3, AchievementTier.BRONZE, "连续达标",
         if (consecutiveDays < 3) "$consecutiveDays/3" else null)
-    add("⭐", "一周冠军", "连续7天控糖达标，你超棒的", consecutiveDays >= 7, AchievementTier.BRONZE, "连续达标",
+    add(R.drawable.ic_ach_week_streak, "一周冠军", "连续7天控糖达标，你超棒的", consecutiveDays >= 7, AchievementTier.BRONZE, "连续达标",
         if (consecutiveDays in 3..6) "$consecutiveDays/7" else null)
-    add("🔥", "两周挑战", "连续14天达标，意志力超群", consecutiveDays >= 14, AchievementTier.SILVER, "连续达标",
+    add(R.drawable.ic_ach_two_week_streak, "两周挑战", "连续14天达标，意志力超群", consecutiveDays >= 14, AchievementTier.SILVER, "连续达标",
         if (consecutiveDays in 7..13) "$consecutiveDays/14" else null)
-    add("💪", "三周勇士", "连续21天达标，习惯已养成", consecutiveDays >= 21, AchievementTier.SILVER, "连续达标",
+    add(R.drawable.ic_ach_three_week_streak, "三周勇士", "连续21天达标，习惯已养成", consecutiveDays >= 21, AchievementTier.SILVER, "连续达标",
         if (consecutiveDays in 14..20) "$consecutiveDays/21" else null)
-    add("🏅", "月度达人", "连续30天达标，控糖已是生活方式", consecutiveDays >= 30, AchievementTier.GOLD, "连续达标",
+    add(R.drawable.ic_ach_month_streak, "月度达人", "连续30天达标，控糖已是生活方式", consecutiveDays >= 30, AchievementTier.GOLD, "连续达标",
         if (consecutiveDays in 21..29) "$consecutiveDays/30" else null)
-    add("🌟", "双月之星", "连续60天达标，坚持就是胜利", consecutiveDays >= 60, AchievementTier.GOLD, "连续达标",
+    add(R.drawable.ic_ach_two_month_streak, "双月之星", "连续60天达标，坚持就是胜利", consecutiveDays >= 60, AchievementTier.GOLD, "连续达标",
         if (consecutiveDays in 30..59) "$consecutiveDays/60" else null)
-    add("💎", "百日传奇", "连续100天达标，你是控糖之神", consecutiveDays >= 100, AchievementTier.DIAMOND, "连续达标",
+    add(R.drawable.ic_ach_hundred_day_streak, "百日传奇", "连续100天达标，你是控糖之神", consecutiveDays >= 100, AchievementTier.DIAMOND, "连续达标",
         if (consecutiveDays in 60..99) "$consecutiveDays/100" else null)
-    add("🐉", "半年霸主", "连续180天达标，半年如一日", consecutiveDays >= 180, AchievementTier.LEGENDARY, "连续达标",
+    add(R.drawable.ic_ach_half_year_streak, "半年霸主", "连续180天达标，半年如一日", consecutiveDays >= 180, AchievementTier.LEGENDARY, "连续达标",
         if (consecutiveDays in 100..179) "$consecutiveDays/180" else null)
 
-    add("📅", "签到新手", "累计7天有记录数据", totalScanDays >= 7, AchievementTier.BRONZE, "打卡",
+    add(R.drawable.ic_ach_seven_day_checkin, "签到新手", "累计7天有记录数据", totalScanDays >= 7, AchievementTier.BRONZE, "打卡",
         if (totalScanDays < 7) "$totalScanDays/7" else null)
-    add("🗓️", "半月达人", "累计14天有记录数据", totalScanDays >= 14, AchievementTier.BRONZE, "打卡",
+    add(R.drawable.ic_ach_fourteen_day_checkin, "半月达人", "累计14天有记录数据", totalScanDays >= 14, AchievementTier.BRONZE, "打卡",
         if (totalScanDays in 7..13) "$totalScanDays/14" else null)
-    add("📆", "坚持一个月", "累计30天有记录，一个月的坚守", totalScanDays >= 30, AchievementTier.SILVER, "打卡",
+    add(R.drawable.ic_ach_thirty_day_checkin, "坚持一个月", "累计30天有记录，一个月的坚守", totalScanDays >= 30, AchievementTier.SILVER, "打卡",
         if (totalScanDays in 14..29) "$totalScanDays/30" else null)
-    add("🎯", "两个月老手", "累计60天有记录", totalScanDays >= 60, AchievementTier.SILVER, "打卡",
+    add(R.drawable.ic_ach_sixty_day_checkin, "两个月老手", "累计60天有记录", totalScanDays >= 60, AchievementTier.SILVER, "打卡",
         if (totalScanDays in 30..59) "$totalScanDays/60" else null)
-    add("🎖️", "季度之星", "累计90天有记录数据", totalScanDays >= 90, AchievementTier.GOLD, "打卡",
+    add(R.drawable.ic_ach_ninety_day_checkin, "季度之星", "累计90天有记录数据", totalScanDays >= 90, AchievementTier.GOLD, "打卡",
         if (totalScanDays in 60..89) "$totalScanDays/90" else null)
-    add("🏆", "半年勋章", "累计180天有记录，真正的自律者", totalScanDays >= 180, AchievementTier.DIAMOND, "打卡",
+    add(R.drawable.ic_ach_half_year_checkin, "半年勋章", "累计180天有记录，真正的自律者", totalScanDays >= 180, AchievementTier.DIAMOND, "打卡",
         if (totalScanDays in 90..179) "$totalScanDays/180" else null)
-    add("🌈", "年度传说", "累计365天有记录，一整年的守护", totalScanDays >= 365, AchievementTier.LEGENDARY, "打卡",
+    add(R.drawable.ic_ach_year_checkin, "年度传说", "累计365天有记录，一整年的守护", totalScanDays >= 365, AchievementTier.LEGENDARY, "打卡",
         if (totalScanDays in 180..364) "$totalScanDays/365" else null)
 
-    add("🧃", "减糖先锋", "单日糖分低于20g", bestDaySugar in 0.01f..20f, AchievementTier.BRONZE, "挑战")
-    add("🥛", "低糖达人", "单日糖分低于15g", bestDaySugar in 0.01f..15f, AchievementTier.SILVER, "挑战")
-    add("🍵", "极限控糖", "单日糖分低于10g", bestDaySugar in 0.01f..10f, AchievementTier.GOLD, "挑战")
-    add("💧", "无糖勇者", "单日糖分低于5g，真正的自律王", bestDaySugar in 0.01f..5f, AchievementTier.DIAMOND, "挑战")
+    add(R.drawable.ic_ach_reduce_sugar, "减糖先锋", "单日糖分低于20g", bestDaySugar in 0.01f..20f, AchievementTier.BRONZE, "挑战")
+    add(R.drawable.ic_ach_low_sugar, "低糖达人", "单日糖分低于15g", bestDaySugar in 0.01f..15f, AchievementTier.SILVER, "挑战")
+    add(R.drawable.ic_ach_extreme_control, "极限控糖", "单日糖分低于10g", bestDaySugar in 0.01f..10f, AchievementTier.GOLD, "挑战")
+    add(R.drawable.ic_ach_zero_sugar, "无糖勇者", "单日糖分低于5g，真正的自律王", bestDaySugar in 0.01f..5f, AchievementTier.DIAMOND, "挑战")
 
-    add("🎓", "健康学霸", "坚持记录+达标，全方面优秀",
+    add(R.drawable.ic_ach_health_scholar, "健康学霸", "坚持记录+达标，全方面优秀",
         totalScanDays >= 30 && consecutiveDays >= 7, AchievementTier.SILVER, "综合")
-    add("🦸", "控糖超人", "50条记录+14天连续达标",
+    add(R.drawable.ic_ach_superhero, "控糖超人", "50条记录+14天连续达标",
         totalRecords >= 50 && consecutiveDays >= 14, AchievementTier.GOLD, "综合")
-    add("🧙", "控糖大师", "100条记录+30天连续达标+60天打卡",
+    add(R.drawable.ic_ach_wizard, "控糖大师", "100条记录+30天连续达标+60天打卡",
         totalRecords >= 100 && consecutiveDays >= 30 && totalScanDays >= 60, AchievementTier.DIAMOND, "综合")
-    add("✨", "糖知之光", "终极成就：200条记录+60天连续达标+90天打卡",
+    add(R.drawable.ic_ach_light_of_sugar, "糖知之光", "终极成就：200条记录+60天连续达标+90天打卡",
         totalRecords >= 200 && consecutiveDays >= 60 && totalScanDays >= 90, AchievementTier.LEGENDARY, "综合")
 
     return list
@@ -338,7 +341,11 @@ private fun AchievementCard(achievement: AchievementItem) {
                     color = if (achievement.unlocked) tier.bgColors[0] else Gray100
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Text(achievement.icon, fontSize = 24.sp)
+                        Image(
+                            painter = painterResource(id = achievement.iconRes),
+                            contentDescription = achievement.title,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
                 }
                 if (achievement.unlocked) {

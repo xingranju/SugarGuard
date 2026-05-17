@@ -6,6 +6,8 @@ import com.example.usermanagement.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -150,6 +152,29 @@ public class FamilyService {
         }).collect(Collectors.toList());
     }
 
+    @Transactional
+    public void deleteFamily(Long groupId, Long userId) {
+        Optional<FamilyGroup> opt = groupRepository.findById(groupId);
+        if (opt.isEmpty()) throw new RuntimeException("家庭不存在");
+        FamilyGroup group = opt.get();
+        if (!group.getCreatorId().equals(userId)) {
+            throw new RuntimeException("只有创建者可以删除家庭");
+        }
+        alertRepository.deleteByGroupId(groupId);
+        memberRepository.deleteAll(memberRepository.findByGroupId(groupId));
+        groupRepository.delete(group);
+    }
+
+    public void leaveFamily(Long groupId, Long userId) {
+        Optional<FamilyMember> opt = memberRepository.findByGroupIdAndUserId(groupId, userId);
+        if (opt.isEmpty()) throw new RuntimeException("你不是该家庭成员");
+        FamilyMember fm = opt.get();
+        if ("owner".equals(fm.getRole())) {
+            throw new RuntimeException("创建者不能退出家庭，请先删除家庭");
+        }
+        memberRepository.delete(fm);
+    }
+
     public void removeMember(Long groupId, Long targetUserId, Long operatorId) {
         Optional<FamilyMember> operator = memberRepository.findByGroupIdAndUserId(groupId, operatorId);
         if (operator.isEmpty() || !"owner".equals(operator.get().getRole())) {
@@ -277,12 +302,34 @@ public class FamilyService {
         return code;
     }
 
+    public FamilyGroupDto updateFamily(Long groupId, Long userId, String name, String avatarUrl, String description) {
+        Optional<FamilyGroup> opt = groupRepository.findById(groupId);
+        if (opt.isEmpty()) throw new RuntimeException("家庭不存在");
+        FamilyGroup group = opt.get();
+
+        Optional<FamilyMember> member = memberRepository.findByGroupIdAndUserId(groupId, userId);
+        if (member.isEmpty() || !"owner".equals(member.get().getRole())) {
+            throw new RuntimeException("只有管理员可以修改家庭信息");
+        }
+
+        if (name != null && !name.isBlank()) group.setName(name);
+        if (avatarUrl != null) group.setAvatarUrl(avatarUrl);
+        if (description != null) group.setDescription(description);
+        groupRepository.save(group);
+
+        int count = memberRepository.findByGroupId(groupId).size();
+        return toGroupDto(group, count);
+    }
+
     private FamilyGroupDto toGroupDto(FamilyGroup group, int memberCount) {
         FamilyGroupDto dto = new FamilyGroupDto();
         dto.setId(group.getId());
         dto.setName(group.getName());
         dto.setInviteCode(group.getInviteCode());
         dto.setMemberCount(memberCount);
+        dto.setAvatarUrl(group.getAvatarUrl());
+        dto.setDescription(group.getDescription());
+        dto.setCreatorId(group.getCreatorId());
         dto.setCreatedAt(group.getCreatedAt() != null ? group.getCreatedAt().toString() : null);
         return dto;
     }
