@@ -84,6 +84,7 @@ public class SecurityConfig {
                 .antMatchers("/api/reports/**").permitAll()
                 .antMatchers("/api/checkin/**").permitAll()
                 .antMatchers("/api/family/**").permitAll()
+                .antMatchers("/api/admin/**").permitAll()
                 // 其他请求需要认证
                 .anyRequest().authenticated()
             )
