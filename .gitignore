@@ -95,3 +95,14 @@ scripts/gen_*_doc*.py
 
 # === Logs ===
 *.log
+
+# === Large binary / dataset files ===
+/drink_model/
+/drink_model.zip
+/ml_kit_dataset_by_drink/
+app/src/main/res/drawable-xxhdpi/
+
+# === Other doc files ===
+/CODING_STANDARDS.docx
+/GIT_BRANCH_STRATEGY.docx
+/GIT_QUICK_GUIDE.txt
