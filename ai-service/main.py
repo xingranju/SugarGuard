@@ -15,6 +15,7 @@ from datetime import datetime
 from config.settings import settings
 from database.database import get_db, init_db
 from agents.tools.image_recognition import get_image_recognition_tool
+from agents.tools.drink_recognition import get_drink_recognition_tool
 from agents.tools.database_query import DatabaseQueryTool
 from agents.tools.health_assessment import HealthAssessmentTool
 from agents.deepseek_agent import get_deepseek_agent
@@ -86,7 +87,14 @@ async def startup_event():
         
         # 预加载图像识别模型
         get_image_recognition_tool()
-        logger.info("图像识别模型加载完成")
+        logger.info("VIT图像识别模型加载完成")
+        
+        # 预加载饮品识别模型
+        drink_tool = get_drink_recognition_tool()
+        if drink_tool:
+            logger.info("饮品识别模型加载完成")
+        else:
+            logger.warning("饮品识别模型不可用，将仅使用VIT模型")
         
         # 初始化RAG知识库系统
         get_rag_system()
@@ -422,12 +430,46 @@ async def recognize_drink(
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
         
-        # 图像识别
+        # === 双模型识别：VIT + 饮品专用模型 ===
         image_tool = get_image_recognition_tool()
-        recognition_results = image_tool.recognize(image, top_k=3)
+        vit_results = image_tool.recognize(image, top_k=3)
+        for r in vit_results:
+            r["source"] = "vit"
         
-        # 获取最可能的结果
-        top_result = recognition_results[0]
+        drink_tool = get_drink_recognition_tool()
+        drink_results = []
+        if drink_tool:
+            try:
+                drink_results = drink_tool.recognize(image, top_k=3)
+            except Exception as e:
+                logger.warning(f"饮品模型识别失败，回退到VIT: {e}")
+        
+        # 比较置信度，选择更优结果
+        vit_top = vit_results[0] if vit_results else None
+        drink_top = drink_results[0] if drink_results else None
+        
+        if drink_top and vit_top:
+            vit_conf = vit_top["confidence"]
+            drink_conf = drink_top["confidence"]
+            logger.info(
+                f"双模型对比 - VIT: {vit_top['label']}({vit_conf:.2%}) vs "
+                f"饮品模型: {drink_top['label']}({drink_conf:.2%})"
+            )
+            if drink_conf >= vit_conf:
+                top_result = drink_top
+                recognition_results = drink_results
+                logger.info(f"选用饮品模型结果: {drink_top['label']}")
+            else:
+                top_result = vit_top
+                recognition_results = vit_results
+                logger.info(f"选用VIT模型结果: {vit_top['label']}")
+        elif drink_top:
+            top_result = drink_top
+            recognition_results = drink_results
+        else:
+            top_result = vit_top
+            recognition_results = vit_results
+        
         drink_name = top_result['label']
         confidence = top_result['confidence']
         
@@ -531,7 +573,10 @@ async def recognize_drink(
             "recognition": {
                 "drink_name": drink_name,
                 "confidence": confidence,
-                "all_results": recognition_results
+                "model_source": top_result.get("source", "vit"),
+                "all_results": recognition_results,
+                "vit_results": vit_results[:3] if vit_results else [],
+                "drink_model_results": drink_results[:3] if drink_results else []
             },
             "nutrition": {
                 "sugar_content": drink_info['sugar_content'],
