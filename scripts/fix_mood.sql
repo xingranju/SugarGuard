@@ -1,0 +1,15 @@
+UPDATE daily_health_records SET water_intake = 2200, exercise_minutes = 45, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-17';
+UPDATE daily_health_records SET water_intake = 2000, exercise_minutes = 30, mood = 'good' WHERE user_id = 20 AND record_date = '2026-05-16';
+UPDATE daily_health_records SET water_intake = 1800, exercise_minutes = 50, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-15';
+UPDATE daily_health_records SET water_intake = 2500, exercise_minutes = 60, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-14';
+UPDATE daily_health_records SET water_intake = 1600, exercise_minutes = 25, mood = 'normal' WHERE user_id = 20 AND record_date = '2026-05-13';
+UPDATE daily_health_records SET water_intake = 2100, exercise_minutes = 40, mood = 'good' WHERE user_id = 20 AND record_date = '2026-05-12';
+UPDATE daily_health_records SET water_intake = 1900, exercise_minutes = 35, mood = 'good' WHERE user_id = 20 AND record_date = '2026-05-11';
+UPDATE daily_health_records SET water_intake = 2300, exercise_minutes = 55, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-10';
+UPDATE daily_health_records SET water_intake = 1700, exercise_minutes = 30, mood = 'good' WHERE user_id = 20 AND record_date = '2026-05-09';
+UPDATE daily_health_records SET water_intake = 2000, exercise_minutes = 45, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-08';
+UPDATE daily_health_records SET water_intake = 1500, exercise_minutes = 20, mood = 'normal' WHERE user_id = 20 AND record_date = '2026-05-07';
+UPDATE daily_health_records SET water_intake = 2400, exercise_minutes = 50, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-06';
+UPDATE daily_health_records SET water_intake = 1800, exercise_minutes = 35, mood = 'good' WHERE user_id = 20 AND record_date = '2026-05-05';
+UPDATE daily_health_records SET water_intake = 2100, exercise_minutes = 40, mood = 'excellent' WHERE user_id = 20 AND record_date = '2026-05-04';
+UPDATE daily_health_records SET water_intake = 2000, exercise_minutes = 30, mood = 'good' WHERE user_id = 20 AND record_date = '2026-05-03';
