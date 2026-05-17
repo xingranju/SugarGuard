@@ -132,6 +132,24 @@ fun DrinkPreferenceScreen(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shadowElevation = 8.dp,
+            color = Color.White
+        ) {
+            Button(
+                onClick = { savePreferences() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .height(48.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MintGreen)
+            ) {
+                Text("保存偏好设置", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
     }
 }
 
